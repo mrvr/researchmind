@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ResearchMind — AI Summary Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ── RESET & BASE ─────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #13161e;
+    --surface2:  #1a1e29;
+    --border:    #252a38;
+    --accent:    #e8c547;
+    --accent2:   #4fc3f7;
+    --accent3:   #f07167;
+    --text:      #e4e6ed;
+    --muted:     #6b7280;
+    --success:   #4ade80;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --font-body: 'Lora', serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ───────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  /* ── LAYOUT ──────────────────────────────────────── */
+  .app-shell {
+    position: relative; z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+  }
+
+  /* ── HEADER ──────────────────────────────────────── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.8rem 0 1.4rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.5rem;
+    animation: fadeDown .6s ease both;
+  }
+  .logo {
+    font-family: var(--font-head);
+    font-size: 1.5rem; font-weight: 800;
+    letter-spacing: -0.03em;
+    display: flex; align-items: center; gap: .6rem;
+  }
+  .logo-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s ease infinite;
+  }
+  .logo span { color: var(--accent); }
+  .header-badge {
+    font-family: var(--font-mono);
+    font-size: .72rem; color: var(--muted);
+    border: 1px solid var(--border);
+    padding: .3rem .8rem; border-radius: 20px;
+    letter-spacing: .08em;
+  }
+
+  /* ── MAIN GRID ───────────────────────────────────── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 860px) { .main-grid { grid-template-columns: 1fr; } }
+
+  /* ── PANEL CARD ──────────────────────────────────── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    animation: fadeUp .6s ease both;
+  }
+  .panel:nth-child(2) { animation-delay: .1s; }
+
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .panel-title {
+    font-family: var(--font-head);
+    font-size: .9rem; font-weight: 700;
+    letter-spacing: .05em; text-transform: uppercase;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .panel-title .icon { font-size: 1rem; }
+  .panel-meta {
+    font-family: var(--font-mono);
+    font-size: .7rem; color: var(--muted);
+  }
+
+  /* ── DROP ZONE ───────────────────────────────────── */
+  .drop-zone {
+    position: relative;
+    margin: 1.4rem;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 2.2rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .25s, background .25s;
+    background: transparent;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(232,197,71,.04);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 2.4rem; margin-bottom: .6rem; display: block; }
+  .drop-label {
+    font-family: var(--font-head); font-size: .95rem; font-weight: 600;
+    color: var(--text); margin-bottom: .35rem;
+  }
+  .drop-hint {
+    font-family: var(--font-mono); font-size: .72rem; color: var(--muted);
+    line-height: 1.6;
+  }
+  .drop-hint strong { color: var(--accent2); }
+
+  /* ── FILE LIST ───────────────────────────────────── */
+  .file-list-container { padding: 0 1.4rem 1rem; }
+  .file-list-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: .6rem;
+  }
+  .file-list-label {
+    font-family: var(--font-mono); font-size: .72rem;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+  }
+  .clear-btn {
+    font-family: var(--font-mono); font-size: .7rem;
+    color: var(--accent3); background: none; border: none;
+    cursor: pointer; text-decoration: underline;
+    padding: 0; transition: opacity .2s;
+  }
+  .clear-btn:hover { opacity: .7; }
+
+  .file-list { list-style: none; display: flex; flex-direction: column; gap: .4rem; max-height: 260px; overflow-y: auto; }
+  .file-list::-webkit-scrollbar { width: 4px; }
+  .file-list::-webkit-scrollbar-track { background: var(--surface); }
+  .file-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .file-item {
+    display: flex; align-items: center; gap: .6rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: .5rem .8rem;
+    animation: slideIn .2s ease both;
+    transition: border-color .2s;
+  }
+  .file-item:hover { border-color: var(--accent2); }
+  .file-type-badge {
+    font-family: var(--font-mono); font-size: .62rem; font-weight: 500;
+    padding: .15rem .45rem; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: .05em; flex-shrink: 0;
+  }
+  .badge-doc  { background: rgba(79,195,247,.15); color: var(--accent2); }
+  .badge-audio { background: rgba(74,222,128,.15); color: var(--success); }
+  .badge-video { background: rgba(240,113,103,.15); color: var(--accent3); }
+  .badge-text  { background: rgba(232,197,71,.15);  color: var(--accent); }
+  .badge-other { background: rgba(107,114,128,.15); color: var(--muted); }
+
+  .file-name {
+    font-family: var(--font-mono); font-size: .76rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1; color: var(--text);
+  }
+  .file-size {
+    font-family: var(--font-mono); font-size: .65rem; color: var(--muted); flex-shrink: 0;
+  }
+  .file-remove {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 1rem; line-height: 1;
+    padding: 0 .1rem; transition: color .2s; flex-shrink: 0;
+  }
+  .file-remove:hover { color: var(--accent3); }
+
+  .no-files {
+    font-family: var(--font-mono); font-size: .75rem;
+    color: var(--muted); text-align: center; padding: 1rem 0;
+  }
+
+  /* ── CONTROLS ────────────────────────────────────── */
+  .controls { padding: 1rem 1.4rem 1.4rem; display: flex; flex-direction: column; gap: .9rem; }
+
+  .context-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .7rem 1rem;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: .85rem;
+    resize: vertical; min-height: 70px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .context-input::placeholder { color: var(--muted); }
+  .context-input:focus { border-color: var(--accent2); }
+  .context-label {
+    font-family: var(--font-mono); font-size: .7rem;
+    color: var(--muted); margin-bottom: .3rem; display: block;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+
+  .btn-generate {
+    width: 100%;
+    background: var(--accent);
+    color: #0d0f14;
+    font-family: var(--font-head);
+    font-size: 1rem; font-weight: 800;
+    letter-spacing: .04em;
+    border: none; border-radius: 10px;
+    padding: .9rem 1.5rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: .6rem;
+    transition: transform .15s, box-shadow .15s, background .2s;
+    box-shadow: 0 0 0 rgba(232,197,71,0);
+  }
+  .btn-generate:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(232,197,71,.28);
+  }
+  .btn-generate:active:not(:disabled) { transform: translateY(0); }
+  .btn-generate:disabled {
+    opacity: .45; cursor: not-allowed;
+    background: var(--muted);
+  }
+  .btn-generate .btn-icon { font-size: 1.1rem; }
+
+  /* ── STATS BAR ───────────────────────────────────── */
+  .stats-bar {
+    display: flex; gap: .5rem; flex-wrap: wrap;
+    padding: .8rem 1.4rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .stat-chip {
+    font-family: var(--font-mono); font-size: .68rem;
+    padding: .2rem .6rem; border-radius: 20px;
+    border: 1px solid var(--border); color: var(--muted);
+    transition: all .2s;
+  }
+  .stat-chip.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ── OUTPUT PANEL ────────────────────────────────── */
+  .output-panel { display: flex; flex-direction: column; }
+  .output-panel .panel-header { position: sticky; top: 0; z-index: 10; }
+
+  .output-body { padding: 1.4rem; min-height: 420px; position: relative; }
+
+  /* Empty state */
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 360px; gap: .8rem; text-align: center;
+  }
+  .empty-glyph {
+    font-size: 3.5rem;
+    filter: grayscale(1); opacity: .35;
+  }
+  .empty-title {
+    font-family: var(--font-head); font-size: 1rem; font-weight: 700;
+    color: var(--muted);
+  }
+  .empty-desc {
+    font-family: var(--font-mono); font-size: .73rem; color: var(--muted);
+    max-width: 280px; line-height: 1.6;
+  }
+
+  /* Loading state */
+  .loading-state {
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    height: 360px; gap: 1.2rem; text-align: center;
+  }
+  .loading-ring {
+    width: 52px; height: 52px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  .loading-steps {
+    display: flex; flex-direction: column; gap: .4rem; align-items: center;
+  }
+  .loading-step {
+    font-family: var(--font-mono); font-size: .74rem; color: var(--muted);
+    opacity: 0; transform: translateY(6px);
+    transition: opacity .4s, transform .4s;
+  }
+  .loading-step.visible { opacity: 1; transform: translateY(0); }
+  .loading-step.done { color: var(--success); }
+  .loading-step.active { color: var(--accent2); }
+
+  /* Result state */
+  .result-state { display: none; }
+
+  .summary-section { margin-bottom: 1.6rem; }
+  .summary-section-title {
+    font-family: var(--font-head); font-size: .78rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--accent); margin-bottom: .7rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .summary-section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .topic-badge {
+    display: inline-block;
+    background: rgba(232,197,71,.12);
+    border: 1px solid rgba(232,197,71,.35);
+    color: var(--accent);
+    font-family: var(--font-head); font-size: 1.05rem; font-weight: 700;
+    padding: .5rem 1.1rem; border-radius: 8px;
+    margin-bottom: .6rem;
+  }
+
+  .summary-body {
+    font-family: var(--font-body);
+    font-size: .92rem; line-height: 1.8; color: var(--text);
+  }
+
+  .key-points { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+  .key-point {
+    display: flex; align-items: flex-start; gap: .7rem;
+    font-family: var(--font-body); font-size: .88rem; line-height: 1.6;
+  }
+  .key-point::before {
+    content: '▸'; color: var(--accent2); flex-shrink: 0; margin-top: .1rem;
+  }
+
+  .sources-grid {
+    display: flex; flex-wrap: wrap; gap: .4rem;
+  }
+  .source-chip {
+    font-family: var(--font-mono); font-size: .68rem;
+    padding: .25rem .65rem; border-radius: 6px;
+    border: 1px solid var(--border); color: var(--muted);
+    background: var(--surface2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 180px;
+  }
+
+  .result-actions {
+    display: flex; gap: .7rem; padding: 1rem 1.4rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .btn-action {
+    font-family: var(--font-mono); font-size: .75rem;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: .5rem 1rem;
+    cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: .4rem;
+  }
+  .btn-action:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-action.danger:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  /* ── ERROR TOAST ─────────────────────────────────── */
+  .toast {
+    position: fixed; bottom: 2rem; right: 2rem;
+    background: var(--surface2); border: 1px solid var(--accent3);
+    color: var(--text); border-radius: 10px;
+    padding: .9rem 1.2rem; font-family: var(--font-mono); font-size: .78rem;
+    max-width: 320px; z-index: 9999;
+    transform: translateY(80px); opacity: 0;
+    transition: transform .3s ease, opacity .3s ease;
+    display: flex; align-items: center; gap: .6rem;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── ANIMATIONS ──────────────────────────────────── */
+  @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(16px); }  to { opacity:1; transform:translateY(0); } }
+  @keyframes slideIn  { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes spin     { to { transform: rotate(360deg); } }
+  @keyframes pulse    { 0%,100% { box-shadow: 0 0 8px var(--accent); } 50% { box-shadow: 0 0 18px var(--accent); } }
+
+  /* ── SCROLLBAR ───────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      Research<span>Mind</span>
+    </div>
+    <div class="header-badge">AI RESEARCH SUMMARY ENGINE · v1.0</div>
+  </header>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- ═══════════════ LEFT PANEL — INPUT ═══════════════ -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="icon">📂</span> Input Sources</div>
+        <div class="panel-meta" id="file-count-meta">0 files loaded</div>
+      </div>
+
+      <!-- Drop Zone -->
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" multiple
+          accept=".txt,.md,.pdf,.doc,.docx,.odt,.ods,.odp,.pptx,.ppt,.xlsx,.xls,.rtf,.mp3,.wav,.m4a,.ogg,.flac,.aac,.mp4,.mkv,.avi,.mov,.webm,.wmv" />
+        <span class="drop-icon">📎</span>
+        <div class="drop-label">Drop files here or click to browse</div>
+        <div class="drop-hint">
+          Supports <strong>TXT, MD, PDF, DOC/DOCX, ODT, RTF</strong><br>
+          <strong>MP3, WAV, M4A, FLAC</strong> · <strong>MP4, MKV, AVI, MOV, WEBM</strong>
+        </div>
+      </div>
+
+      <!-- File List -->
+      <div class="file-list-container">
+        <div class="file-list-header">
+          <span class="file-list-label">Queued Files</span>
+          <button class="clear-btn" id="clearAllBtn" onclick="clearAllFiles()" style="display:none">Clear all</button>
+        </div>
+        <ul class="file-list" id="fileList">
+          <li class="no-files" id="noFilesMsg">No files added yet</li>
+        </ul>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="stats-bar">
+        <div class="stat-chip" id="stat-docs">📄 0 Documents</div>
+        <div class="stat-chip" id="stat-audio">🎵 0 Audio</div>
+        <div class="stat-chip" id="stat-video">🎬 0 Video</div>
+        <div class="stat-chip" id="stat-text">📝 0 Text</div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <div>
+          <label class="context-label" for="contextInput">Research context (optional)</label>
+          <textarea class="context-input" id="contextInput"
+            placeholder="e.g. Focus on methodology and findings related to neural network architectures…"></textarea>
+        </div>
+        <button class="btn-generate" id="generateBtn" onclick="generateSummary()" disabled>
+          <span class="btn-icon">⚡</span> Generate Summary
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ RIGHT PANEL — OUTPUT ═══════════════ -->
+    <div class="panel output-panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="icon">🧠</span> AI Summary Output</div>
+        <div class="panel-meta" id="output-status">Awaiting input</div>
+      </div>
+
+      <div class="output-body" id="outputBody">
+
+        <!-- EMPTY STATE -->
+        <div class="empty-state" id="emptyState">
+          <div class="empty-glyph">🔬</div>
+          <div class="empty-title">No summary yet</div>
+          <div class="empty-desc">Upload your research files and click <em>Generate Summary</em> to begin analysis.</div>
+        </div>
+
+        <!-- LOADING STATE -->
+        <div class="loading-state" id="loadingState">
+          <div class="loading-ring"></div>
+          <div class="loading-steps">
+            <div class="loading-step" id="step1">🔍 Scanning uploaded files…</div>
+            <div class="loading-step" id="step2">🔤 Extracting text from documents…</div>
+            <div class="loading-step" id="step3">🎙 Transcribing audio/video…</div>
+            <div class="loading-step" id="step4">🤖 Analyzing content with AI…</div>
+            <div class="loading-step" id="step5">✍️ Generating research summary…</div>
+          </div>
+        </div>
+
+        <!-- RESULT STATE -->
+        <div class="result-state" id="resultState">
+
+          <!-- Main Topic -->
+          <div class="summary-section">
+            <div class="summary-section-title">Main Topic</div>
+            <div class="topic-badge" id="res-topic">—</div>
+          </div>
+
+          <!-- Overview -->
+          <div class="summary-section">
+            <div class="summary-section-title">Overview</div>
+            <div class="summary-body" id="res-overview">—</div>
+          </div>
+
+          <!-- Key Points -->
+          <div class="summary-section">
+            <div class="summary-section-title">Key Points</div>
+            <ul class="key-points" id="res-keypoints"></ul>
+          </div>
+
+          <!-- Research Gaps -->
+          <div class="summary-section">
+            <div class="summary-section-title">Research Gaps &amp; Suggestions</div>
+            <div class="summary-body" id="res-gaps">—</div>
+          </div>
+
+          <!-- Source Files -->
+          <div class="summary-section">
+            <div class="summary-section-title">Source Files Analysed</div>
+            <div class="sources-grid" id="res-sources"></div>
+          </div>
+
+        </div><!-- /result-state -->
+      </div><!-- /output-body -->
+
+      <!-- Result Actions (shown only after result) -->
+      <div class="result-actions" id="resultActions" style="display:none">
+        <button class="btn-action" onclick="copySummary()">📋 Copy</button>
+        <button class="btn-action" onclick="exportMarkdown()">⬇️ Export .md</button>
+        <button class="btn-action danger" onclick="resetOutput()">🗑 Clear</button>
+      </div>
+
+    </div><!-- /output-panel -->
+
+  </div><!-- /main-grid -->
+</div><!-- /app-shell -->
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════ */
+let files = []; // Array of { id, file, type }
+
+/* ════════════════════════════════════════════════════════
+   FILE TYPE CLASSIFIER
+════════════════════════════════════════════════════════ */
+function classifyFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const docExts  = ['pdf','doc','docx','odt','ods','odp','ppt','pptx','xls','xlsx','rtf'];
+  const audioExts = ['mp3','wav','m4a','ogg','flac','aac','wma'];
+  const videoExts = ['mp4','mkv','avi','mov','webm','wmv','flv'];
+  const textExts  = ['txt','md','csv','json','xml','html'];
+  if (docExts.includes(ext))   return 'doc';
+  if (audioExts.includes(ext)) return 'audio';
+  if (videoExts.includes(ext)) return 'video';
+  if (textExts.includes(ext))  return 'text';
+  return 'other';
+}
+
+function typeBadge(type) {
+  const map = {
+    doc:   ['badge-doc',   'DOC'],
+    audio: ['badge-audio', 'AUDIO'],
+    video: ['badge-video', 'VIDEO'],
+    text:  ['badge-text',  'TEXT'],
+    other: ['badge-other', 'FILE'],
+  };
+  return map[type] || map.other;
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+
+/* ════════════════════════════════════════════════════════
+   FILE MANAGEMENT
+════════════════════════════════════════════════════════ */
+function addFiles(newFiles) {
+  for (const f of newFiles) {
+    const duplicate = files.some(x => x.file.name === f.name && x.file.size === f.size);
+    if (duplicate) { showToast(`"${f.name}" already added`); continue; }
+    files.push({ id: Date.now() + Math.random(), file: f, type: classifyFile(f) });
+  }
+  renderFileList();
+}
+
+function removeFile(id) {
+  files = files.filter(f => f.id !== id);
+  renderFileList();
+}
+
+function clearAllFiles() {
+  files = [];
+  renderFileList();
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  const noMsg = document.getElementById('noFilesMsg');
+  const clearBtn = document.getElementById('clearAllBtn');
+  const genBtn = document.getElementById('generateBtn');
+  const meta = document.getElementById('file-count-meta');
+
+  list.innerHTML = '';
+
+  if (files.length === 0) {
+    list.appendChild(Object.assign(document.createElement('li'), { className:'no-files', id:'noFilesMsg', textContent:'No files added yet' }));
+    clearBtn.style.display = 'none';
+    genBtn.disabled = true;
+    meta.textContent = '0 files loaded';
+  } else {
+    clearBtn.style.display = '';
+    genBtn.disabled = false;
+    meta.textContent = `${files.length} file${files.length>1?'s':''} loaded`;
+    files.forEach(({id, file, type}) => {
+      const [badgeClass, badgeLabel] = typeBadge(type);
+      const li = document.createElement('li');
+      li.className = 'file-item';
+      li.dataset.id = id;
+      li.innerHTML = `
+        <span class="file-type-badge ${badgeClass}">${badgeLabel}</span>
+        <span class="file-name" title="${file.name}">${file.name}</span>
+        <span class="file-size">${formatSize(file.size)}</span>
+        <button class="file-remove" title="Remove" onclick="removeFile(${id})">✕</button>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  updateStats();
+}
+
+function updateStats() {
+  const counts = { doc:0, audio:0, video:0, text:0 };
+  files.forEach(f => { if (counts[f.type] !== undefined) counts[f.type]++; });
+  const s = (id, icon, label, key) => {
+    const el = document.getElementById(id);
+    el.textContent = `${icon} ${counts[key]} ${label}`;
+    el.classList.toggle('active', counts[key] > 0);
+  };
+  s('stat-docs',  '📄', 'Documents', 'doc');
+  s('stat-audio', '🎵', 'Audio',     'audio');
+  s('stat-video', '🎬', 'Video',     'video');
+  s('stat-text',  '📝', 'Text',      'text');
+}
+
+/* ════════════════════════════════════════════════════════
+   DRAG & DROP
+════════════════════════════════════════════════════════ */
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+fileInput.addEventListener('change', e => { addFiles(Array.from(e.target.files)); fileInput.value=''; });
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  addFiles(Array.from(e.dataTransfer.files));
+});
+
+/* ════════════════════════════════════════════════════════
+   LOADING ANIMATION
+════════════════════════════════════════════════════════ */
+function runLoadingSteps() {
+  const steps = ['step1','step2','step3','step4','step5'];
+  steps.forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'loading-step'; // reset
+  });
+  let i = 0;
+  return new Promise(resolve => {
+    const tick = () => {
+      if (i > 0) {
+        document.getElementById(steps[i-1]).classList.remove('active');
+        document.getElementById(steps[i-1]).classList.add('done');
+      }
+      if (i < steps.length) {
+        document.getElementById(steps[i]).classList.add('visible','active');
+        i++;
+        setTimeout(tick, 800);
+      } else {
+        setTimeout(resolve, 400);
+      }
+    };
+    tick();
+  });
+}
+
+/* ════════════════════════════════════════════════════════
+   MAIN: GENERATE SUMMARY
+   ─────────────────────────────────────────────────────
+   ┌─────────────────────────────────────────────────────┐
+   │  BACKEND INTEGRATION POINT                          │
+   │                                                     │
+   │  Replace `callBackendAPI()` below with your real    │
+   │  Python/FastAPI/Flask endpoint call.                │
+   │                                                     │
+   │  Expected response shape:                           │
+   │  {                                                  │
+   │    topic: string,                                   │
+   │    overview: string,                                │
+   │    keyPoints: string[],                             │
+   │    gaps: string,                                    │
+   │    sourceFiles: string[]                            │
+   │  }                                                  │
+   └─────────────────────────────────────────────────────┘
+════════════════════════════════════════════════════════ */
+async function callBackendAPI(formData) {
+  /* ──────────────────────────────────────────────────────
+     🔌 PLUG IN YOUR PYTHON BACKEND HERE
+     ──────────────────────────────────────────────────────
+     Replace this function body with a real fetch() call
+     to your Python backend (FastAPI / Flask).
+
+     Example:
+       const response = await fetch('http://localhost:8000/api/summarize', {
+         method: 'POST',
+         body: formData   // formData contains all files + context
+       });
+       if (!response.ok) throw new Error(await response.text());
+       return await response.json();
+
+     Your Python endpoint should:
+       1. Extract text from PDFs (PyMuPDF / pdfplumber)
+       2. Parse DOCX/ODT (python-docx / odfpy)
+       3. Transcribe audio (Whisper)
+       4. Extract audio from video → Whisper
+       5. Combine all text → send to LLM (Claude / OpenAI)
+       6. Return structured JSON matching the shape above
+  ─────────────────────────────────────────────────────── */
+  const response = await fetch('http://localhost:8000/api/summarize', {
+         method: 'POST',
+         body: formData   // formData contains all files + context
+       });
+       if (!response.ok) throw new Error(await response.text());
+       return await response.json();
+
+       
+  // ── DEMO MOCK (remove when backend is ready) ──────────
+  // await new Promise(r => setTimeout(r, 4200)); // simulate processing
+  // const fileNames = files.map(f => f.file.name);
+  // return {
+  //   topic: "Deep Learning Approaches in Biomedical Signal Processing",
+  //   overview: "The collected materials explore the convergence of deep learning architectures — particularly transformer-based models and convolutional neural networks — with biomedical signal analysis. Emphasis is placed on real-time inference pipelines, noise robustness in clinical environments, and interpretability constraints imposed by regulatory frameworks.",
+  //   keyPoints: [
+  //     "Transformer encoders outperform LSTM baselines on long-range EEG dependencies by up to 18% (F1-score) in seizure detection benchmarks.",
+  //     "Data augmentation strategies including frequency warping and channel dropout significantly improve model generalization across patient cohorts.",
+  //     "Federated learning is proposed as a privacy-preserving training paradigm suitable for multi-institution clinical data.",
+  //     "Explainability tools (Grad-CAM, SHAP) are increasingly required for FDA-clearable AI medical devices.",
+  //     "Inference latency below 200ms is a hard constraint for real-time cardiac monitoring systems."
+  //   ],
+  //   gaps: "Current literature lacks standardized benchmarking protocols for cross-dataset evaluation. There is limited work on continual learning approaches that handle distribution shift caused by device upgrades or population drift. Future research should investigate energy-efficient model compression for edge deployment in wearable medical devices.",
+  //   sourceFiles: fileNames
+  // };
+  // ── END DEMO MOCK ─────────────────────────────────────
+}
+
+async function generateSummary() {
+  if (files.length === 0) { showToast('Please add at least one file'); return; }
+
+  // Build FormData for backend
+  const formData = new FormData();
+  files.forEach(({file}) => formData.append('files', file));
+  formData.append('context', document.getElementById('contextInput').value);
+
+  // UI: switch to loading
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('output-status').textContent = 'Processing…';
+  switchOutputState('loading');
+
+  const loadingDone = runLoadingSteps();
+
+  try {
+    const [result] = await Promise.all([ callBackendAPI(formData), loadingDone ]);
+    renderResult(result);
+  } catch (err) {
+    switchOutputState('empty');
+    document.getElementById('output-status').textContent = 'Error — see toast';
+    showToast('❌ ' + (err.message || 'Backend error'), true);
+  } finally {
+    document.getElementById('generateBtn').disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   RENDER RESULT
+════════════════════════════════════════════════════════ */
+function renderResult(data) {
+  document.getElementById('res-topic').textContent   = data.topic   || 'Unknown';
+  document.getElementById('res-overview').textContent = data.overview || '—';
+  document.getElementById('res-gaps').textContent    = data.gaps    || '—';
+
+  const kpEl = document.getElementById('res-keypoints');
+  kpEl.innerHTML = '';
+  (data.keyPoints || []).forEach(pt => {
+    const li = document.createElement('li');
+    li.className = 'key-point'; li.textContent = pt;
+    kpEl.appendChild(li);
+  });
+
+  const srcEl = document.getElementById('res-sources');
+  srcEl.innerHTML = '';
+  (data.sourceFiles || []).forEach(name => {
+    const chip = document.createElement('div');
+    chip.className = 'source-chip'; chip.textContent = name; chip.title = name;
+    srcEl.appendChild(chip);
+  });
+
+  switchOutputState('result');
+  document.getElementById('output-status').textContent = 'Summary ready ✓';
+  document.getElementById('resultActions').style.display = 'flex';
+}
+
+/* ════════════════════════════════════════════════════════
+   OUTPUT STATE SWITCHER
+════════════════════════════════════════════════════════ */
+function switchOutputState(state) {
+  document.getElementById('emptyState').style.display   = state==='empty'   ? 'flex' : 'none';
+  document.getElementById('loadingState').style.display = state==='loading' ? 'flex' : 'none';
+  document.getElementById('resultState').style.display  = state==='result'  ? 'block' : 'none';
+  if (state !== 'result') document.getElementById('resultActions').style.display = 'none';
+}
+
+/* ════════════════════════════════════════════════════════
+   ACTIONS
+════════════════════════════════════════════════════════ */
+function resetOutput() {
+  switchOutputState('empty');
+  document.getElementById('output-status').textContent = 'Awaiting input';
+}
+
+function copySummary() {
+  const topic    = document.getElementById('res-topic').textContent;
+  const overview = document.getElementById('res-overview').textContent;
+  const kps      = Array.from(document.querySelectorAll('.key-point')).map(x=>'• '+x.textContent).join('\n');
+  const gaps     = document.getElementById('res-gaps').textContent;
+  const text = `RESEARCH SUMMARY\n\nMain Topic: ${topic}\n\nOverview:\n${overview}\n\nKey Points:\n${kps}\n\nResearch Gaps:\n${gaps}`;
+  navigator.clipboard.writeText(text).then(() => showToast('✅ Copied to clipboard'));
+}
+
+function exportMarkdown() {
+  const topic    = document.getElementById('res-topic').textContent;
+  const overview = document.getElementById('res-overview').textContent;
+  const kps      = Array.from(document.querySelectorAll('.key-point')).map(x=>'- '+x.textContent).join('\n');
+  const gaps     = document.getElementById('res-gaps').textContent;
+  const sources  = Array.from(document.querySelectorAll('.source-chip')).map(x=>'- `'+x.textContent+'`').join('\n');
+  const md = `# Research Summary\n\n## Main Topic\n${topic}\n\n## Overview\n${overview}\n\n## Key Points\n${kps}\n\n## Research Gaps & Suggestions\n${gaps}\n\n## Source Files\n${sources}\n`;
+  const blob = new Blob([md], { type:'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'research-summary.md';
+  a.click();
+  showToast('⬇️ Markdown exported');
+}
+
+/* ════════════════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════════════════ */
+let toastTimer;
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = isError ? 'var(--accent3)' : 'var(--border)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
