@@ -7,6 +7,7 @@ Edit this file to tune models, paths, and processing parameters.
 import os
 import subprocess
 from pathlib import Path
+from dotenv import load_dotenv
 
 # ── Project Paths ──────────────────────────────────────────────────────────────
 BASE_DIR        = Path(__file__).parent
@@ -15,6 +16,10 @@ TEMP_DIR        = BASE_DIR / "tmp"
 
 CHROMA_DB_PATH.mkdir(exist_ok=True)
 TEMP_DIR.mkdir(exist_ok=True)
+
+# Load .env before any os.getenv() calls below. Real values live in .env
+# (gitignored); .env.example documents the variables without secrets.
+load_dotenv(BASE_DIR / ".env")
 
 # ── GPU Auto-Detection ─────────────────────────────────────────────────────────
 def _detect_gpu() -> dict:

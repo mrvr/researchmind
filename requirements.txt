@@ -12,6 +12,7 @@ numpy
 # ── Web server ──────────────────────────────────────────────────────────────
 uvicorn[standard]
 python-multipart      # required by FastAPI File()/Form() upload endpoints
+python-dotenv          # loads .env into os.environ — see config.py
 
 # ── Document / text extraction (processors/) ───────────────────────────────
 PyMuPDF               # fitz — PDF text extraction
