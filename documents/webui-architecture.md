@@ -49,6 +49,7 @@ flowchart TB
 
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> Idle
     Idle --> Idle: file removed / fields edited
     Idle --> Validating: Start clicked
@@ -56,11 +57,16 @@ stateDiagram-v2
     Validating --> Processing: file present
     Processing --> Processing: fingerprint → search → fetch → score
     Processing --> Results: 200 OK
-    Processing --> ErrorState: request failed / backend unreachable
+    Processing --> Idle: request failed / backend unreachable (toast shown)
     Results --> Idle: Clear clicked
-    ErrorState --> Idle: dismissed
-    ErrorState --> Processing: Retry clicked
 ```
+
+There is no separate "error" screen — on failure the output box just
+returns to its empty state (same as Idle) and a toast reports the
+error; the user retries by clicking Start again, there's no dedicated
+Retry control. `runSimilarityCheck()` in `research_summary_app.html`
+calls `switchSimilarityOutputState('empty')` in its `catch` block,
+which is exactly this transition.
 
 ## Verdict thresholds shown in the banner
 
