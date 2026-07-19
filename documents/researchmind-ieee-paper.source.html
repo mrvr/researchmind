@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ResearchMind: A Locally-Hosted, GPU-Aware Multimodal RAG Pipeline with Integrated Plagiarism Detection</title>
+<style>
+  @page {
+    size: letter;
+    margin: 0.75in 0.625in 1in 0.625in;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: "Liberation Serif", "Times New Roman", Times, serif;
+    font-size: 10pt;
+    line-height: 1.18;
+    color: #000;
+    text-align: justify;
+    hyphens: auto;
+  }
+
+  /* ── Title block (full width, before column split) ─────────────── */
+  .titleblock {
+    text-align: center;
+    margin-bottom: 6pt;
+  }
+  .paper-title {
+    font-size: 22pt;
+    font-weight: bold;
+    line-height: 1.15;
+    margin: 0 0 10pt;
+    padding: 0 0.4in;
+  }
+  .authors {
+    font-size: 11pt;
+    margin: 0 0 2pt;
+  }
+  .affil {
+    font-size: 10pt;
+    font-style: italic;
+    margin: 0 0 2pt;
+  }
+  .email {
+    font-size: 9.5pt;
+    font-family: "Liberation Mono", "Courier New", monospace;
+    margin: 0 0 12pt;
+  }
+
+  /* ── Two-column body ─────────────────────────────────────────────── */
+  .body-columns {
+    column-count: 2;
+    column-gap: 0.25in;
+    column-rule: none;
+  }
+
+  p { margin: 0 0 6pt; text-indent: 0.16in; }
+  p.no-indent { text-indent: 0; }
+
+  .abstract p, .keywords p { text-indent: 0; margin: 0 0 6pt; }
+  .abstract b, .keywords b { font-style: italic; }
+
+  h1.sec {
+    font-size: 10pt;
+    font-weight: bold;
+    text-align: center;
+    letter-spacing: 0.4pt;
+    margin: 12pt 0 4pt;
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  h2.subsec {
+    font-size: 10pt;
+    font-weight: bold;
+    font-style: italic;
+    margin: 8pt 0 3pt;
+    break-after: avoid;
+  }
+
+  figure {
+    break-inside: avoid;
+    margin: 8pt 0;
+    text-align: center;
+  }
+  figure.wide {
+    column-span: all;
+    margin: 10pt 0 12pt;
+  }
+  figure img {
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+    border: 0.5pt solid #999;
+  }
+  figcaption {
+    font-size: 8.5pt;
+    margin-top: 4pt;
+    padding: 0 0.3in;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8pt 0;
+    font-size: 8.5pt;
+    break-inside: avoid;
+  }
+  table.wide { column-span: all; width: 100%; }
+  caption {
+    caption-side: top;
+    font-size: 8.5pt;
+    margin-bottom: 4pt;
+    font-variant: normal;
+  }
+  th, td {
+    border-top: 0.75pt solid #000;
+    border-bottom: 0.75pt solid #000;
+    padding: 3pt 5pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th { border-bottom: 0.75pt solid #000; font-weight: bold; }
+  tbody tr:last-child td { border-bottom: 0.75pt solid #000; }
+
+  .eq {
+    text-align: center;
+    margin: 8pt 0;
+    font-size: 10pt;
+    font-style: italic;
+  }
+
+  ul, ol { margin: 4pt 0 8pt 0.3in; padding: 0; font-size: 10pt; }
+  li { margin-bottom: 2pt; }
+
+  code, .mono { font-family: "Liberation Mono", "Courier New", monospace; font-size: 9pt; }
+
+  .refs {
+    font-size: 9pt;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: refnum;
+  }
+  .refs li {
+    counter-increment: refnum;
+    margin: 0 0 4pt 0;
+    padding-left: 1.5em;
+    text-indent: -1.5em;
+  }
+  .refs li::before {
+    content: "[" counter(refnum) "]";
+    padding-right: 0.4em;
+  }
+
+  sup.cite { font-size: 8pt; }
+</style>
+</head>
+<body>
+
+  <div class="titleblock">
+    <div class="paper-title">ResearchMind: A Locally-Hosted, GPU-Aware Multimodal Retrieval-Augmented Generation Pipeline with Integrated Plagiarism Detection</div>
+    <div class="authors">Raghuvardhan M</div>
+    <div class="affil">Independent Researcher</div>
+    <div class="email">raghu8linux@gmail.com</div>
+  </div>
+
+  <div class="body-columns">
+
+    <div class="abstract">
+      <p class="no-indent"><b>Abstract—</b>We present ResearchMind, a research-assistant system that ingests heterogeneous source material&mdash;text, PDF and office documents, audio, video, and spreadsheets&mdash;and produces a structured synthesis using a locally hosted large language model (LLM), avoiding third-party cloud inference for the core summarization path. Extracted content is chunked, embedded, and indexed in a local vector store to support context-aware retrieval. We extend this pipeline with a Similarity Finder subsystem that fingerprints an uploaded paper, queries free and official academic search APIs (arXiv, Semantic Scholar, Crossref, and, where credentials are supplied, IEEE Xplore and the NASA Astrophysics Data System), and scores content overlap using a weighted combination of embedding-based semantic similarity and lexical n-gram overlap, flagging candidates above a configurable threshold as a chance of plagiarism. A central engineering contribution of this work is a GPU-compute-placement strategy that verifies device usability with a real inference call rather than trusting driver-level availability reporting; we document a concrete case in which an installed accelerator was reported as available by both the operating system and the machine-learning framework, yet failed at the kernel level due to a compiled-wheel/architecture mismatch, and describe the runtime fallback that keeps the system functional without operator intervention. The complete system is exposed through a dual-mode browser interface and was validated end-to-end against a live backend, a local LLM, and live external search APIs.</p>
+    </div>
+
+    <div class="keywords">
+      <p class="no-indent"><b>Index Terms—</b>retrieval-augmented generation, local large language models, multimodal document processing, plagiarism detection, GPU compute placement, vector embeddings, academic search APIs</p>
+    </div>
+
+    <h1 class="sec">I. Introduction</h1>
+    <p>Researchers routinely work with source material spread across incompatible formats: PDF manuscripts, slide decks, recorded lectures, and tabular datasets. Synthesizing this material into a coherent overview, and separately verifying that a draft does not unintentionally overlap with existing published work, are both labor-intensive tasks that are increasingly delegated to AI systems. The dominant pattern for such systems is to route documents through a third-party cloud API, which raises privacy, cost, and availability concerns&mdash;particularly for unpublished or sensitive research material.</p>
+    <p>ResearchMind is designed around a different default: the ingestion, embedding, and summarization pipeline runs entirely on local infrastructure, using a locally hosted LLM server (Ollama), a local automatic speech recognition (ASR) engine, and a local embedding model backed by an on-disk vector store. The one capability that is inherently non-local&mdash;checking a manuscript against the wider published literature for content overlap&mdash;is implemented as an explicitly scoped, opt-in subsystem that reaches only a small set of academic search endpoints, each chosen for having an official, free access path rather than being scraped.</p>
+    <p>This paper makes four contributions. First, we describe a unified architecture for multimodal ingestion and retrieval-augmented synthesis that treats five distinct content modalities through a common downstream representation. Second, we describe a plagiarism/originality-checking subsystem, the Similarity Finder, built on a pluggable connector interface over official academic APIs, with a blended semantic&ndash;lexical scoring function. Third, and most novel from a systems perspective, we describe a GPU-compute-placement strategy that treats accelerator &ldquo;availability&rdquo; as something to be verified by executing real work, not merely queried from the driver, and we report a concrete hardware/software mismatch discovered during deployment together with the runtime mitigation. Fourth, we describe a browser-based interface that exposes both capabilities through a consistent design system, and report an end-to-end validation of the complete stack.</p>
+
+    <h1 class="sec">II. Related Work</h1>
+    <p>Retrieval-augmented generation (RAG) conditions a generative language model on passages retrieved from an external corpus at inference time, improving factual grounding relative to parametric generation alone&nbsp;<sup class="cite">[2]</sup>. ResearchMind applies the same principle in a single-session setting: content extracted from a user&rsquo;s own uploaded files is embedded and indexed, and, when a research-focus prompt is supplied, semantically relevant chunks are retrieved and folded into the final synthesis prompt. The underlying LLM and embedding model are both built on the Transformer architecture&nbsp;<sup class="cite">[1]</sup>; the embedding model follows the Sentence-BERT approach of fine-tuning a Transformer encoder with a siamese/triplet objective so that cosine similarity between sentence embeddings is meaningful&nbsp;<sup class="cite">[3]</sup>. Approximate nearest-neighbor retrieval over the resulting embeddings is performed with a Hierarchical Navigable Small World (HNSW) graph index&nbsp;<sup class="cite">[5]</sup>, as implemented by the ChromaDB vector database used in this system. Speech and audio content is transcribed with a Transformer-based ASR model trained on large-scale weakly supervised data&nbsp;<sup class="cite">[4]</sup>, executed locally through a CTranslate2-optimized inference engine. Content-overlap detection has traditionally relied on lexical fingerprinting (e.g., shingled n-gram matching); ResearchMind combines that lexical signal with dense semantic similarity so that paraphrased or conceptually overlapping&mdash;but not verbatim&mdash;text is also surfaced, at reduced confidence relative to near-exact matches.</p>
+
+    <h1 class="sec">III. System Architecture</h1>
+    <p>Figure&nbsp;1 shows the end-to-end summarization pipeline. An uploaded file set is routed by file extension into one of five categories&mdash;plain text, rich documents, audio, video, and spreadsheets&mdash;each handled by a dedicated processor. Text and document extraction uses format-specific libraries (PyMuPDF for PDF, python-docx and python-pptx for Office formats, odfpy for OpenDocument formats); audio and video are transcribed by a locally hosted Whisper model, with video first demultiplexed to a 16&nbsp;kHz mono waveform; spreadsheets are summarized statistically (column typing, correlation analysis, categorical value counts) before being handed to the LLM for narrative interpretation. Independent files are processed concurrently through a thread pool, since the workload is I/O- and inference-bound rather than CPU-bound.</p>
+    <p>Every processor&rsquo;s output is chunked with a fixed character budget and overlap, embedded, and upserted into a persistent, cosine-indexed ChromaDB collection. A summarization stage merges all per-source outputs into a single budgeted context block; if the user supplies a research-focus prompt, the system additionally retrieves the most semantically relevant stored chunks and folds them into that context before a single call to the local LLM produces the final structured summary (topic, overview, key points, methodology, data insights, research gaps, and keywords).</p>
+    <p>The pipeline is exposed through a small REST surface: a single synthesis endpoint that accepts a multipart file set and an optional context string, a health endpoint that reports LLM reachability and the presence of each format-specific extraction dependency, and a model-listing endpoint used by operator tooling. Uploaded files are written to a per-request temporary directory that is removed once processing completes or fails, so no uploaded content persists on disk beyond the lifetime of a single request; only the derived vector-store index and search cache persist across requests, and both are reset or expired independently of the raw uploads.</p>
+
+    </div>
+    <figure class="wide">
+      <img src="file:///home/raghuvrdhan/Documents/courses/outskill/projects/webapp/cpu_only/documents/diagrams/system-full-pipeline.jpg" alt="System pipeline architecture" />
+      <figcaption>Fig.&nbsp;1.&nbsp;&nbsp;End-to-end ingestion, retrieval, and synthesis pipeline. Files are routed by modality to dedicated processors, chunked and embedded into a local vector store, and merged into a single LLM synthesis call, with optional semantic retrieval when a research-focus prompt is supplied.</figcaption>
+    </figure>
+    <div class="body-columns">
+
+    <h1 class="sec">IV. Similarity Finder Subsystem</h1>
+    <p>The Similarity Finder extends the pipeline with an originality check for a single uploaded paper (Fig.&nbsp;2). It first fingerprints the document&mdash;extracting a title and abstract using the LLM where available, with a heading-and-paragraph heuristic fallback when the LLM is unreachable&mdash;and generates a small set of targeted search queries, again LLM-assisted with a keyword-extraction fallback. These queries are dispatched in parallel across a registry of search connectors, each implementing a common interface. Three connectors require no credentials: the arXiv API, the Semantic Scholar Academic Graph API, and the Crossref works API, which together give broad cross-publisher metadata coverage. Two further connectors are gated behind operator-supplied credentials: the IEEE Xplore API and the NASA Astrophysics Data System API, the latter chosen specifically because AAS-published journals (e.g., <i>The Astrophysical Journal</i>) are canonically indexed there. A connector that lacks its required credential is skipped automatically, with the gap reported through a status endpoint that the interface uses to grey out the corresponding option, rather than failing the request.</p>
+    <p>Deliberately absent are direct connectors to Google Scholar and the ACM Digital Library, neither of which exposes an official public search API; reaching them would require either a paid third-party proxy or scraping their result pages, the latter both fragile and contrary to those sites&rsquo; terms of service. This gap is treated as a documented limitation rather than worked around silently. A separate, inert placeholder registry (covering PubMed, CORE, OpenAlex, DBLP, DOAJ, and several publisher APIs) defines the shape of additional sources that can be wired up later without modifying the fan-out or scoring logic.</p>
+    <p>Search results are deduplicated by DOI or normalized title, and content is resolved per candidate: where an open-access PDF is available (notably from arXiv) it is downloaded and full text extracted through the same document processor used for uploads; otherwise the connector-supplied abstract is used, and each candidate carries a content-level flag reflecting which was obtained.</p>
+
+    <h2 class="subsec">A. Blended Similarity Scoring</h2>
+    <p>Both the uploaded paper and each candidate&rsquo;s resolved content are chunked with the same chunking function used elsewhere in the system, and pairwise cosine similarity is computed between all chunk embeddings. A semantic score is taken as the mean of the top-<i>k</i> highest-similarity chunk pairs, which is more robust to partial overlap (e.g., a shared methodology section in an otherwise distinct paper) than a single whole-document embedding comparison. A lexical score is computed independently as the Jaccard overlap between 5-gram word shingles of the full texts, which is more sensitive to near-verbatim copying than embedding similarity alone. The two are combined as</p>
+    <p class="eq">S = &alpha;&middot;S<sub>sem</sub> + &beta;&middot;S<sub>lex</sub>,&nbsp;&nbsp;&alpha;=0.7,&nbsp;&beta;=0.3</p>
+    <p>Candidates with S at or above a configurable threshold (0.60 by default) are flagged as a chance of plagiarism; the same threshold and blended score drive both the API response and the interface&rsquo;s verdict banner, so the two never disagree. The report additionally distinguishes candidates resolved from full text against those resolved from an abstract only, since a high score against an abstract-only candidate reflects overlap in a much smaller sample of text and warrants more caution than the same score against a fully resolved source. Search results are cached on disk, keyed by a hash of the connector name and query string with a configurable time-to-live, so repeated checks against overlapping queries&mdash;common when a user revises and resubmits the same paper&mdash;do not repeatedly re-query rate-limited public endpoints.</p>
+
+    </div>
+    <figure class="wide">
+      <img src="file:///home/raghuvrdhan/Documents/courses/outskill/projects/webapp/cpu_only/documents/diagrams/similarity-finder-component-architecture.jpg" alt="Similarity Finder component architecture" />
+      <figcaption>Fig.&nbsp;2.&nbsp;&nbsp;Similarity Finder component architecture: fingerprinting, connector fan-out with on-disk caching, candidate content resolution, and blended-score reporting.</figcaption>
+    </figure>
+    <div class="body-columns">
+
+    <h1 class="sec">V. GPU-Aware Compute Placement</h1>
+    <p>A recurring assumption in deployment guides for local-inference stacks is that querying the driver (e.g., <span class="mono">nvidia-smi</span>) or the machine-learning framework (e.g., <span class="mono">torch.cuda.is_available()</span>) is sufficient to decide whether GPU acceleration can be used. During deployment of this system we found that assumption to be false in a reproducible way, and we treat the resulting design as a contribution in its own right.</p>
+
+    <h2 class="subsec">B. A Concrete Availability/Usability Mismatch</h2>
+    <p>The deployment machine reports an NVIDIA GPU (8&nbsp;GB VRAM, Pascal microarchitecture, compute capability 6.1) through both <span class="mono">nvidia-smi</span> and <span class="mono">torch.cuda.is_available()</span>, the latter returning <span class="mono">True</span>. However, the installed PyTorch build&mdash;compiled against a newer CUDA toolkit&mdash;ships kernels only for compute capabilities 7.5 and above; it silently omits capability 6.1. A tensor placed on the device with <span class="mono">.to(&quot;cuda&quot;)</span> succeeds, since device placement is a memory operation, but the first operation that actually executes a kernel (e.g., an embedding lookup inside a forward pass) raises <span class="mono">no kernel image is available for execution on the device</span>. Framework-level availability checks and even successful model loading therefore give no guarantee that inference will succeed.</p>
+    <p>A second, independent issue compounded this: the embedding library used for the local vector store caches loaded models in a process-wide dictionary keyed only by model name, not by device. A first, failed attempt to load the embedding model on the GPU therefore poisoned the cache, so that a subsequent request for the same model on the CPU silently returned the already-instantiated, non-functional GPU-bound object&mdash;masking the fallback entirely rather than merely failing to apply it.</p>
+
+    <h2 class="subsec">C. Verification-Before-Commitment Strategy</h2>
+    <p>We address both issues with the same principle: before a device is committed to for the remainder of a process, it is exercised with a real, minimal unit of work, and only a caching-free path is used for that probe. For embeddings, a throwaway encoder instance (bypassing the vector-store library&rsquo;s cached wrapper) performs one real <span class="mono">encode()</span> call; if it raises, the system logs the failure and falls back to CPU before ever constructing the cached wrapper, so the poisoned-cache failure mode cannot occur. For speech transcription, the ASR engine reports, per device, which compute types it can execute; on the deployment GPU this excludes half-precision floating point even though enough VRAM is available to justify it by capacity alone. Requesting an unsupported compute type raises before any audio is processed, so the system catches that specific failure and retries with a supported compute type on the same device before considering CPU, keeping transcription GPU-accelerated whenever the device is usable at all. Table&nbsp;I summarizes the observed outcome for each component on the deployment hardware.</p>
+
+    </div>
+    <table class="wide">
+      <caption>TABLE&nbsp;I<br/>Requested vs. Actual Compute Placement (Deployment GPU: 8&nbsp;GB, Compute Capability 6.1)</caption>
+      <thead>
+        <tr><th>Component</th><th>Requested</th><th>Verified outcome</th><th>Reason</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Sentence embeddings (vector store)</td><td>CUDA</td><td>CPU (fallback)</td><td>No kernel image for compute capability 6.1 in installed framework build</td></tr>
+        <tr><td>Sentence embeddings (similarity scoring)</td><td>CUDA</td><td>CPU (fallback)</td><td>Same root cause; verified independently via a real encode() call</td></tr>
+        <tr><td>Speech transcription (Whisper)</td><td>CUDA, half precision</td><td>CUDA, mixed 8-bit/32-bit</td><td>Inference engine reports half precision unsupported on this device; falls back to a supported compute type without leaving the GPU</td></tr>
+        <tr><td>LLM inference (Ollama, external process)</td><td>CUDA</td><td>CUDA</td><td>Managed independently by the LLM server; unaffected by the framework-level issue above</td></tr>
+      </tbody>
+    </table>
+    <div class="body-columns">
+
+    <p>This design generalizes beyond the specific hardware observed: any deployment where the installed framework build and the physical accelerator diverge&mdash;a common situation as vendors phase out kernel support for older architectures in newer wheel releases&mdash;is handled the same way, without requiring the operator to pre-diagnose the mismatch.</p>
+
+    <h1 class="sec">VI. Web-Based User Interface</h1>
+    <p>Both capabilities are exposed through a single-page browser interface (Fig.&nbsp;3) with two modes sharing one visual design system. The Summarize mode accepts multiple files and an optional research-focus prompt and renders the structured synthesis described in Section&nbsp;III. The Similarity Finder mode accepts a single paper, optional title/author/domain-hint overrides, and per-source checkboxes that are populated at load time from the connector-availability endpoint, so credential-gated sources appear disabled with an explanatory label rather than silently failing later. The result view leads with a verdict banner&mdash;the highest blended score, a four-tier verdict label, and the titles of the top matching candidates&mdash;positioned above the general paper summary and the full candidate table, so the originality assessment is visible without scrolling. The four verdict tiers reuse the interface&rsquo;s existing accent palette rather than introducing new colors, keeping the two modes visually consistent. Because candidate titles, authors, and URLs originate from third-party APIs and are therefore untrusted input, they are rendered exclusively through safe DOM text-assignment rather than HTML interpolation, precluding script injection from a malicious or compromised upstream result.</p>
+
+    </div>
+    <figure class="wide">
+      <img src="file:///home/raghuvrdhan/Documents/courses/outskill/projects/webapp/cpu_only/documents/diagrams/webui-layout.jpg" alt="Web UI layout" />
+      <figcaption>Fig.&nbsp;3.&nbsp;&nbsp;Similarity Finder interface layout: input panel with per-source availability, and an output panel led by the verdict banner, followed by the paper summary and full candidate table.</figcaption>
+    </figure>
+    <div class="body-columns">
+
+    <h1 class="sec">VII. Empirical Observation</h1>
+    <p>We validated the complete stack end-to-end with the backend server, a local Ollama instance (7-billion-parameter instruction-tuned model), and live calls to the three keyless search connectors, driven through a headless-browser test of the actual interface rather than by calling internal functions directly. A short paraphrase of a well-known machine-learning paper was submitted to the Similarity Finder. The system returned 76 deduplicated candidates across the three connectors, with a highest blended similarity score of 48%, placing the result in the &ldquo;low overlap, likely original&rdquo; tier&mdash;below the 60% plagiarism-flag threshold. This is the expected outcome for a paraphrase that shares topic and terminology with the source material without reproducing it verbatim, and indicates that the blended scoring function separates topical/conceptual overlap from the higher-confidence overlap that should be flagged. The same session exercised the Summarize mode against the identical input and produced a coherent structured summary, confirming both modes function correctly against the same underlying document-processing and LLM-integration code paths. No client-side errors were observed during either run.</p>
+
+    <h1 class="sec">VIII. Limitations and Future Work</h1>
+    <ul>
+      <li><i>Search coverage.</i> Google Scholar and the ACM Digital Library remain unreachable without either a paid proxy service or scraping; both are treated as an explicit gap rather than approximated.</li>
+      <li><i>Threshold calibration.</i> The 60% flag threshold and the four verdict-tier boundaries are engineering defaults, not calibrated against a labeled corpus of known-plagiarized and known-original submissions.</li>
+      <li><i>Single embedding model.</i> Semantic similarity relies on one general-purpose sentence-embedding model; domain-specific or multilingual papers may benefit from model ensembling or selection.</li>
+      <li><i>Reactive GPU verification.</i> The probe-then-fallback strategy in Section&nbsp;V detects a bad placement after attempting it, rather than consulting a precompiled compatibility matrix; this trades a small one-time verification cost for not requiring such a matrix to be maintained.</li>
+      <li><i>Additional sources.</i> Connectors for PubMed, OpenAlex, CORE, and several publisher APIs are scaffolded as configuration placeholders (Section&nbsp;IV) but not yet implemented, pending a per-source terms-of-service review.</li>
+    </ul>
+
+    <h1 class="sec">IX. Conclusion</h1>
+    <p>We described ResearchMind, a locally hosted multimodal research assistant that unifies document, audio, video, and spreadsheet ingestion behind a common retrieval-augmented synthesis pipeline, and extends it with a plagiarism/originality-checking subsystem built on official academic search APIs and a blended semantic&ndash;lexical scoring function. We further described and validated a GPU-compute-placement strategy that treats accelerator availability as something to be verified through execution rather than assumed from driver or framework reporting, motivated by a concrete, reproducible mismatch encountered on real deployment hardware, together with a related caching hazard in a third-party embedding library. The complete system, including both processing modes and the fallback behavior described here, was validated end-to-end through a live browser-driven test against the running backend, a local LLM, and live external APIs.</p>
+
+    <h1 class="sec">References</h1>
+    <ol class="refs">
+      <li>A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, &Lstrok;. Kaiser, and I. Polosukhin, &ldquo;Attention is all you need,&rdquo; in <i>Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)</i>, 2017, pp. 5998&ndash;6008.</li>
+      <li>P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. K&uuml;ttler, M. Lewis, W. Yih, T. Rockt&auml;schel, S. Riedel, and D. Kiela, &ldquo;Retrieval-augmented generation for knowledge-intensive NLP tasks,&rdquo; in <i>Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)</i>, 2020.</li>
+      <li>N. Reimers and I. Gurevych, &ldquo;Sentence-BERT: Sentence embeddings using Siamese BERT-networks,&rdquo; in <i>Proc. Conf. Empirical Methods Natural Lang. Process. (EMNLP)</i>, 2019, pp. 3982&ndash;3992.</li>
+      <li>A. Radford, J. W. Kim, T. Xu, G. Brockman, C. McLeavey, and I. Sutskever, &ldquo;Robust speech recognition via large-scale weak supervision,&rdquo; <i>arXiv preprint arXiv:2212.04356</i>, 2022.</li>
+      <li>Y. A. Malkov and D. A. Yashunin, &ldquo;Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs,&rdquo; <i>IEEE Trans. Pattern Anal. Mach. Intell.</i>, vol.&nbsp;42, no.&nbsp;4, pp. 824&ndash;836, 2020.</li>
+      <li>J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, &ldquo;BERT: Pre-training of deep bidirectional transformers for language understanding,&rdquo; in <i>Proc. Conf. North American Chapter Assoc. Comput. Linguistics (NAACL-HLT)</i>, 2019, pp. 4171&ndash;4186.</li>
+      <li>Ollama Inc., &ldquo;Ollama: Get up and running with large language models locally,&rdquo; 2024. [Online]. Available: https://ollama.com</li>
+      <li>Chroma Inc., &ldquo;Chroma: The open-source embedding database,&rdquo; 2024. [Online]. Available: https://www.trychroma.com</li>
+    </ol>
+
+  </div>
+</body>
+</html>
