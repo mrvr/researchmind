@@ -31,8 +31,9 @@ from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from main import run_pipeline
+from main import run_pipeline, run_similarity_check
 from core.llm_client import LLMClient
+from connectors.registry import available_sources
 from utils.logger import get_logger
 
 log = get_logger("API")
@@ -146,6 +147,67 @@ async def health_check():
         "model":        llm.model,
         "dependencies": dep_status,
     }
+
+
+# ── Similarity Finder ──────────────────────────────────────────────────────────
+@app.get("/api/similarity/sources")
+async def similarity_sources():
+    """
+    Report which search connectors are usable right now — the WebUI uses
+    this to grey out source checkboxes (e.g. IEEE/ADS without an API key).
+    """
+    return {"sources": available_sources()}
+
+
+@app.post("/api/check-plagiarism")
+async def check_plagiarism(
+    file:       UploadFile      = File(..., description="Research paper to check (PDF/DOCX/text)"),
+    title:      str             = Form("", description="Optional title override"),
+    authors:    str             = Form("", description="Optional author list (free text)"),
+    domainHint: str             = Form("", description="Optional subject/domain hint"),
+    sources:    str             = Form("", description="Optional comma-separated source names to restrict to"),
+):
+    """
+    Run the Similarity Finder on a single uploaded paper: search arXiv,
+    Semantic Scholar, Crossref, IEEE Xplore (if configured), and NASA ADS
+    (if configured) for overlapping content, score it, and return a
+    plagiarism report alongside a general summary of the paper.
+    """
+    log.info(f"Similarity check requested for '{file.filename}' | domainHint='{domainHint[:80]}'")
+
+    temp_dir = Path(tempfile.mkdtemp(prefix="researchmind_sim_"))
+    saved_path = temp_dir / file.filename
+
+    try:
+        with saved_path.open("wb") as f:
+            content = await file.read()
+            f.write(content)
+        log.info(f"  Saved: {file.filename} ({len(content):,} bytes)")
+
+        sources_filter = [s.strip() for s in sources.split(",") if s.strip()] or None
+
+        result = run_similarity_check(
+            filepath=saved_path,
+            title_override=title,
+            authors_override=authors,
+            domain_hint=domainHint,
+            sources_filter=sources_filter,
+        )
+
+        if result.get("status") == "error":
+            raise HTTPException(status_code=422, detail=result.get("error", "Similarity check failed"))
+
+        return JSONResponse(content=result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Similarity check error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        log.info(f"  Cleaned up temp dir: {temp_dir}")
 
 
 # ── List Models ────────────────────────────────────────────────────────────────

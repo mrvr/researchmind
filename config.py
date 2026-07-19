@@ -119,9 +119,9 @@ CHUNK_SIZE    = 1000    # characters per chunk
 CHUNK_OVERLAP = 150     # overlap between consecutive chunks
 
 # ── LLM Prompt Templates ──────────────────────────────────────────────────────
-SYSTEM_PROMPT = """You are an expert research analyst. Your task is to analyze 
-research content and produce structured, insightful summaries suitable for 
-academic paper writing. Be precise, objective, and highlight key findings, 
+SYSTEM_PROMPT = """You are an expert research analyst. Your task is to analyze
+research content and produce structured, insightful summaries suitable for
+academic paper writing. Be precise, objective, and highlight key findings,
 methodologies, and research gaps."""
 
 SUMMARY_PROMPT_TEMPLATE = """
@@ -176,60 +176,77 @@ DATASET DESCRIPTION:
 
 ANALYSIS:"""
 
-# ── LLM Prompt Templates ──────────────────────────────────────────────────────
-SYSTEM_PROMPT = """You are an expert research analyst. Your task is to analyze 
-research content and produce structured, insightful summaries suitable for 
-academic paper writing. Be precise, objective, and highlight key findings, 
-methodologies, and research gaps."""
+# ── Similarity Finder (plagiarism check) ───────────────────────────────────────
+# Searches external academic sources for content overlap with an uploaded paper.
+# The only stage of the app that makes external network calls — see
+# documents/similarity-finder-architecture.md for the full design.
 
-SUMMARY_PROMPT_TEMPLATE = """
-You are analyzing research content from multiple sources.
+SEARCH_CACHE_DIR       = BASE_DIR / "search_cache"
+SEARCH_CACHE_DIR.mkdir(exist_ok=True)
+SEARCH_CACHE_TTL_HOURS = 168        # 1 week
 
-RESEARCH CONTEXT PROVIDED BY USER:
-{user_context}
+SEARCH_MAX_RESULTS_PER_SOURCE = 10
+SEARCH_TIMEOUT_SEC            = 15
+SEARCH_QUERIES_PER_PAPER      = 4   # LLM-generated queries + 1 raw-title query
 
-CONTENT FROM ALL SOURCES:
-{combined_content}
+PLAGIARISM_SIMILARITY_THRESHOLD = 0.60   # >= this → flagged as chance of plagiarism
+SIMILARITY_SEMANTIC_WEIGHT      = 0.70   # embedding cosine similarity
+SIMILARITY_LEXICAL_WEIGHT       = 0.30   # word n-gram Jaccard overlap
+SIMILARITY_TOP_K_CHUNK_PAIRS    = 5      # best-matching chunk pairs averaged per candidate
 
-Based on the above, produce a structured research summary with the following sections:
+# Official/free APIs — always attempted.
+ARXIV_API_URL            = "http://export.arxiv.org/api/query"
+SEMANTIC_SCHOLAR_API_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
+CROSSREF_API_URL         = "https://api.crossref.org/works"
 
-1. MAIN TOPIC: One concise sentence identifying the central research topic.
-2. OVERVIEW: 2-3 paragraphs summarizing the core content across all sources.
-3. KEY POINTS: 5-8 bullet points of the most important findings, facts, or arguments.
-4. METHODOLOGY (if applicable): How was the research conducted?
-5. DATA INSIGHTS (if spreadsheet data was analyzed): Key statistics and trends found.
-6. RESEARCH GAPS & SUGGESTIONS: What is missing? What should be investigated further?
-7. KEYWORDS: 8-10 relevant academic keywords for this topic.
+# Official APIs gated behind a key/token — the connector auto-disables (with
+# a log warning) when the corresponding env var is unset.
+IEEE_API_URL   = "http://ieeexploreapi.ieee.org/api/v1/search/articles"
+IEEE_API_KEY   = os.getenv("IEEE_API_KEY", "")
 
-Be specific. Avoid vague language. Cite content types (e.g., "The video lecture discusses...", "The PDF paper states...").
+ADS_API_URL    = "https://api.adsabs.harvard.edu/v1/search/query"
+ADS_API_TOKEN  = os.getenv("ADS_API_TOKEN", "")
+
+SEMANTIC_SCHOLAR_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY", "")  # optional, raises rate limit
+
+# Placeholder registry for additional, not-yet-wired-up sources — see
+# documents/similarity-finder-architecture.md "Placeholder for additional
+# sources". Adding a row here does nothing on its own: a matching
+# connectors/<key>_connector.py must exist AND "enabled" must be True.
+EXTRA_SEARCH_SOURCES = {
+    "pubmed":        {"name": "PubMed / NCBI E-utilities",       "base_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/",         "api_key_env": None,                "access": "official_api", "enabled": False},
+    "core":          {"name": "CORE (core.ac.uk)",               "base_url": "https://api.core.ac.uk/v3/search/works/",               "api_key_env": "CORE_API_KEY",      "access": "official_api", "enabled": False},
+    "openalex":      {"name": "OpenAlex",                        "base_url": "https://api.openalex.org/works",                        "api_key_env": None,                "access": "official_api", "enabled": False},
+    "dblp":          {"name": "DBLP (CS bibliography)",          "base_url": "https://dblp.org/search/publ/api",                      "api_key_env": None,                "access": "official_api", "enabled": False},
+    "doaj":          {"name": "DOAJ (Directory of OA Journals)", "base_url": "https://doaj.org/api/search/articles/",                 "api_key_env": None,                "access": "official_api", "enabled": False},
+    "springer":      {"name": "Springer Link",                   "base_url": "https://api.springernature.com/meta/v2/",               "api_key_env": "SPRINGER_API_KEY",  "access": "official_api", "enabled": False},
+    "sciencedirect": {"name": "Elsevier ScienceDirect",          "base_url": "https://api.elsevier.com/content/search/sciencedirect", "api_key_env": "ELSEVIER_API_KEY",  "access": "official_api", "enabled": False},
+    "ssrn":          {"name": "SSRN",                            "base_url": "https://papers.ssrn.com/sol3/",                         "api_key_env": None,                "access": "scrape_only",  "enabled": False},
+    "researchgate":  {"name": "ResearchGate",                    "base_url": "https://www.researchgate.net/search",                   "api_key_env": None,                "access": "scrape_only",  "enabled": False},
+    "jstor":         {"name": "JSTOR",                           "base_url": "https://www.jstor.org/action/doBasicSearch",            "api_key_env": None,                "access": "scrape_only",  "enabled": False},
+}
+
+PAPER_TITLE_ABSTRACT_PROMPT = """
+The following is the beginning of a research paper's extracted text.
+Identify: (1) the paper's title, (2) its abstract (or the first
+substantial paragraph if no abstract section exists).
+
+Respond in exactly this format:
+TITLE: <title text>
+ABSTRACT: <abstract text>
+
+PAPER TEXT:
+{paper_start}
 """
 
-AUDIO_SUMMARY_PROMPT = """
-The following is a transcription of an audio recording.
-Summarize the key points discussed, the main topic, and any notable conclusions.
-Keep the summary concise (3-5 sentences).
+SEARCH_QUERY_GENERATION_PROMPT = """
+You are helping search academic databases for papers related to the one below.
+Generate {n} concise, targeted search queries (3-8 words each) that would
+surface closely related or overlapping research. One per line, no numbering,
+no extra commentary.
 
-TRANSCRIPTION:
-{transcription}
+TITLE: {title}
+ABSTRACT: {abstract}
+DOMAIN HINT: {domain_hint}
 
-SUMMARY:"""
-
-VIDEO_GIST_PROMPT = """
-The following is a transcription of a video recording.
-Extract: (1) the main topic, (2) key discussion points, (3) any conclusions or recommendations.
-Be concise and factual.
-
-TRANSCRIPTION:
-{transcription}
-
-GIST:"""
-
-SPREADSHEET_ANALYSIS_PROMPT = """
-You are a data analyst. The following is a statistical description of a dataset.
-Identify: (1) what the data is about, (2) key patterns or trends, (3) notable outliers or insights,
-(4) what conclusions can be drawn for research purposes.
-
-DATASET DESCRIPTION:
-{data_description}
-
-ANALYSIS:"""
+QUERIES:"""

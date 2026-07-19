@@ -32,6 +32,9 @@ from utils.file_router import route_files
 from core.llm_client import LLMClient
 from core.vector_store import VectorStore
 from core.summarizer import build_combined_content, generate_final_summary
+from core import paper_fingerprint, candidate_fetcher, similarity_engine
+from core import plagiarism_report as report_builder
+from connectors import registry as search_registry
 import processors.text_processor        as text_proc
 import processors.document_processor    as doc_proc
 import processors.audio_processor       as audio_proc
@@ -240,6 +243,120 @@ def _error_result(message: str, proc_log: list) -> dict:
         "sourceFiles": [], "processingLog": proc_log,
         "error": message, "raw_llm": "",
     }
+
+
+def run_similarity_check(
+    filepath: str | Path,
+    title_override: str = "",
+    authors_override: str = "",
+    domain_hint: str = "",
+    sources_filter: list[str] | None = None,
+) -> dict:
+    """
+    Execute the Similarity Finder pipeline on a single research paper:
+    extract text → fingerprint (title/abstract/queries) → search external
+    sources → fetch candidate content → score similarity → build report.
+
+    See documents/similarity-finder-architecture.md and
+    documents/webui-architecture.md for the full design.
+
+    Args:
+        filepath:         Path to the uploaded paper (PDF/DOCX/text)
+        title_override:   Optional user-supplied title (skips auto-detection)
+        authors_override: Optional user-supplied author list (free text, informational only)
+        domain_hint:      Optional subject/domain hint to scope search queries
+        sources_filter:   Optional list of connector source names to restrict results to
+
+    Returns:
+        {
+            "status":  "success" | "error",
+            "error":   str | None,
+            "summary": {"topic": str, "overview": str, "keyPoints": list[str]},
+            "paperTitle": str, "sourcesQueried": list[str],
+            "totalCandidatesSearched": int, "highestScore": float,
+            "riskLevel": str, "verdict": str, "threshold": float,
+            "flagged": list[dict], "allCandidates": list[dict],
+        }
+    """
+    filepath = Path(filepath)
+    log.info("=" * 60)
+    log.info(f"Similarity Finder — {filepath.name}")
+    log.info("=" * 60)
+
+    if not filepath.exists():
+        return {"status": "error", "error": f"File not found: {filepath}"}
+
+    groups = route_files([filepath])
+    if groups.get("document"):
+        extracted = doc_proc.process(filepath)
+    elif groups.get("text"):
+        extracted = text_proc.process(filepath)
+    else:
+        return {
+            "status": "error",
+            "error": f"Unsupported file type for similarity check: {filepath.suffix or '(none)'}. "
+                     f"Upload a PDF, DOCX, or plain-text paper.",
+        }
+
+    if extracted.get("error"):
+        return {"status": "error", "error": extracted["error"]}
+
+    paper_text = extracted.get("content", "")
+    if not paper_text.strip():
+        return {"status": "error", "error": "No extractable text found in the uploaded paper."}
+
+    llm = LLMClient()
+    llm_client = llm if llm.is_available() else None
+    if not llm_client:
+        log.warning("LLM not available — using heuristic title/query extraction, no AI summary")
+
+    # ── Fingerprint + query generation ────────────────────────────────────────
+    fingerprint = paper_fingerprint.extract_title_abstract(
+        paper_text, llm_client=llm_client, title_override=title_override,
+    )
+    title, abstract = fingerprint["title"], fingerprint["abstract"]
+
+    queries = paper_fingerprint.generate_search_queries(
+        title, abstract, domain_hint=domain_hint, llm_client=llm_client,
+    )
+    log.info(f"Generated {len(queries)} search quer{'y' if len(queries) == 1 else 'ies'}: {queries}")
+
+    # ── Search external sources ────────────────────────────────────────────────
+    candidates = search_registry.run_all(queries)
+    if sources_filter:
+        candidates = [c for c in candidates if c.source in sources_filter]
+    log.info(f"Found {len(candidates)} unique candidate paper(s) after dedup")
+
+    sources_queried = sorted({c.source for c in candidates})
+    if not sources_queried:
+        sources_queried = [name for name, ok in search_registry.available_sources().items() if ok]
+
+    # ── Fetch candidate content + score similarity ─────────────────────────────
+    fetched = candidate_fetcher.fetch_all(candidates)
+    scored_candidates = [
+        {"candidate": candidate, "score": similarity_engine.score_candidate(paper_text, candidate_text)}
+        for candidate, candidate_text in fetched
+    ]
+
+    report = report_builder.build_report(title, scored_candidates, sources_queried)
+
+    # ── General paper summary (reuses the Summarize-mode summarizer) ──────────
+    if llm_client:
+        combined = build_combined_content(processor_results=[{
+            "source": filepath.name, "type": extracted["type"], "content": paper_text,
+        }])
+        raw_summary = generate_final_summary(combined, domain_hint, llm_client)
+        summary = {
+            "topic":     raw_summary.get("topic") or title,
+            "overview":  raw_summary.get("overview") or abstract,
+            "keyPoints": raw_summary.get("keyPoints", []),
+        }
+    else:
+        summary = {"topic": title, "overview": abstract or paper_text[:1000], "keyPoints": []}
+
+    log.info("Similarity check complete ✓")
+
+    return {"status": "success", "error": None, "summary": summary, **report}
 
 
 # ── CLI Entry Point ─────────────────────────────────────────────────────────────

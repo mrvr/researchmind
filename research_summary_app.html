@@ -81,6 +81,24 @@
     letter-spacing: .08em;
   }
 
+  /* ── MODE SWITCH ─────────────────────────────────── */
+  .mode-switch {
+    display: flex; gap: .3rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .25rem;
+  }
+  .mode-btn {
+    font-family: var(--font-head); font-size: .78rem; font-weight: 700;
+    letter-spacing: .03em;
+    background: none; border: none; border-radius: 7px;
+    color: var(--muted); padding: .5rem 1rem;
+    cursor: pointer; transition: all .2s;
+  }
+  .mode-btn:hover { color: var(--text); }
+  .mode-btn.active { background: var(--accent); color: #0d0f14; }
+
   /* ── MAIN GRID ───────────────────────────────────── */
   .main-grid {
     display: grid;
@@ -234,6 +252,40 @@
     text-transform: uppercase; letter-spacing: .08em;
   }
 
+  /* ── TEXT INPUTS (Similarity Check fields) ────────── */
+  .text-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .65rem 1rem;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: .85rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .text-input::placeholder { color: var(--muted); }
+  .text-input:focus { border-color: var(--accent2); }
+
+  /* ── SOURCE CHECKLIST ──────────────────────────────── */
+  .source-checklist {
+    display: flex; flex-direction: column; gap: .5rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: .8rem 1rem;
+  }
+  .source-check-item {
+    display: flex; align-items: center; gap: .55rem;
+    font-family: var(--font-mono); font-size: .78rem; color: var(--text);
+    cursor: pointer;
+  }
+  .source-check-item input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; }
+  .source-check-item.unavailable { color: var(--muted); cursor: not-allowed; }
+  .source-check-item.unavailable::after {
+    content: 'no API key configured';
+    font-size: .65rem; color: var(--accent3); margin-left: auto;
+  }
+
   .btn-generate {
     width: 100%;
     background: var(--accent);
@@ -365,6 +417,77 @@
   .sources-grid {
     display: flex; flex-wrap: wrap; gap: .4rem;
   }
+
+  /* ── VERDICT BANNER (top of Similarity Report) ────── */
+  .verdict-banner {
+    display: flex; align-items: center; gap: 1.4rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 1.8rem;
+  }
+  .verdict-score {
+    font-family: var(--font-head); font-size: 2.6rem; font-weight: 800;
+    line-height: 1; flex-shrink: 0;
+    min-width: 5.5rem; text-align: center;
+  }
+  .verdict-details { flex: 1; display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+  .verdict-pill {
+    display: inline-block; align-self: flex-start;
+    font-family: var(--font-head); font-size: .78rem; font-weight: 700;
+    letter-spacing: .05em; text-transform: uppercase;
+    padding: .35rem .8rem; border-radius: 20px;
+  }
+  .verdict-titles {
+    font-family: var(--font-mono); font-size: .74rem; color: var(--text);
+    line-height: 1.7;
+  }
+  .verdict-titles .vt-item { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .verdict-titles .vt-score { color: var(--muted); }
+
+  /* Verdict tiers — reuse the app's existing 4-color palette */
+  .verdict-pill.verdict-original { background: rgba(74,222,128,.14);  color: var(--success); }
+  .verdict-pill.verdict-low      { background: rgba(79,195,247,.14);  color: var(--accent2); }
+  .verdict-pill.verdict-review   { background: rgba(232,197,71,.16);  color: var(--accent);  }
+  .verdict-pill.verdict-copy     { background: rgba(240,113,103,.16); color: var(--accent3); }
+  .verdict-score.verdict-original { color: var(--success); }
+  .verdict-score.verdict-low      { color: var(--accent2); }
+  .verdict-score.verdict-review   { color: var(--accent); }
+  .verdict-score.verdict-copy     { color: var(--accent3); }
+  .candidate-score.verdict-original { color: var(--success); }
+  .candidate-score.verdict-low      { color: var(--accent2); }
+  .candidate-score.verdict-review   { color: var(--accent); }
+  .candidate-score.verdict-copy     { color: var(--accent3); }
+
+  /* ── CANDIDATES TABLE ──────────────────────────────── */
+  .candidates-table { display: flex; flex-direction: column; gap: .5rem; }
+  .candidate-row {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: .7rem .9rem;
+    transition: border-color .2s;
+  }
+  .candidate-row.flagged { border-color: rgba(240,113,103,.4); }
+  .candidate-row-top { display: flex; align-items: center; gap: .7rem; }
+  .candidate-score {
+    font-family: var(--font-mono); font-weight: 700; font-size: .82rem;
+    min-width: 3rem; text-align: right; flex-shrink: 0;
+  }
+  .candidate-info { flex: 1; min-width: 0; }
+  .candidate-title {
+    font-family: var(--font-body); font-size: .86rem; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .candidate-meta {
+    font-family: var(--font-mono); font-size: .68rem; color: var(--muted);
+    margin-top: .15rem;
+  }
+  .candidate-meta a { color: var(--accent2); text-decoration: none; }
+  .candidate-meta a:hover { text-decoration: underline; }
+  .no-candidates {
+    font-family: var(--font-mono); font-size: .75rem; color: var(--muted);
+    text-align: center; padding: 1rem 0;
+  }
   .source-chip {
     font-family: var(--font-mono); font-size: .68rem;
     padding: .25rem .65rem; border-radius: 6px;
@@ -424,11 +547,15 @@
       <div class="logo-dot"></div>
       Research<span>Mind</span>
     </div>
+    <div class="mode-switch" id="modeSwitch">
+      <button class="mode-btn active" data-mode="summarize" onclick="setMode('summarize')">Summarize</button>
+      <button class="mode-btn" data-mode="similarity" onclick="setMode('similarity')">Similarity Check</button>
+    </div>
     <div class="header-badge">AI RESEARCH SUMMARY ENGINE · v1.0</div>
   </header>
 
-  <!-- MAIN GRID -->
-  <div class="main-grid">
+  <!-- ═══════════════ MODE: SUMMARIZE ═══════════════ -->
+  <div class="main-grid" id="mode-summarize">
 
     <!-- ═══════════════ LEFT PANEL — INPUT ═══════════════ -->
     <div class="panel">
@@ -555,6 +682,127 @@
     </div><!-- /output-panel -->
 
   </div><!-- /main-grid -->
+
+  <!-- ═══════════════ MODE: SIMILARITY CHECK ═══════════════ -->
+  <div class="main-grid" id="mode-similarity" style="display:none">
+
+    <!-- ═══════════════ LEFT PANEL — PAPER UNDER REVIEW ═══════════════ -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="icon">📄</span> Paper Under Review</div>
+        <div class="panel-meta" id="paper-file-meta">No file loaded</div>
+      </div>
+
+      <!-- Drop Zone (single file) -->
+      <div class="drop-zone" id="paperDropZone">
+        <input type="file" id="paperFileInput" accept=".pdf,.doc,.docx,.odt,.rtf,.txt,.md" />
+        <span class="drop-icon">📎</span>
+        <div class="drop-label">Drop a paper here or click to browse</div>
+        <div class="drop-hint">
+          Supports <strong>PDF, DOC/DOCX, ODT, RTF, TXT, MD</strong> · one file at a time
+        </div>
+      </div>
+
+      <ul class="file-list" id="paperFileList" style="padding:0 1.4rem;"></ul>
+
+      <!-- Controls -->
+      <div class="controls">
+        <div>
+          <label class="context-label" for="paperTitleInput">Paper title (optional)</label>
+          <input type="text" class="text-input" id="paperTitleInput"
+            placeholder="Leave blank to auto-detect from the document" />
+        </div>
+        <div>
+          <label class="context-label" for="paperAuthorInput">Author(s) (optional)</label>
+          <input type="text" class="text-input" id="paperAuthorInput"
+            placeholder="e.g. J. Smith, A. Rao" />
+        </div>
+        <div>
+          <label class="context-label" for="paperDomainInput">Subject / domain hint (optional)</label>
+          <input type="text" class="text-input" id="paperDomainInput"
+            placeholder="e.g. computer vision, astrophysics — scopes the search queries" />
+        </div>
+        <div>
+          <label class="context-label">Sources to search</label>
+          <div class="source-checklist" id="sourceChecklist">
+            <label class="source-check-item"><input type="checkbox" value="arXiv" checked> arXiv</label>
+            <label class="source-check-item"><input type="checkbox" value="Semantic Scholar" checked> Semantic Scholar</label>
+            <label class="source-check-item"><input type="checkbox" value="Crossref" checked> Crossref</label>
+            <label class="source-check-item" id="sc-ieee"><input type="checkbox" value="IEEE Xplore" checked> IEEE Xplore</label>
+            <label class="source-check-item" id="sc-ads"><input type="checkbox" value="NASA ADS (AAS)" checked> NASA ADS (AAS journals)</label>
+          </div>
+        </div>
+        <button class="btn-generate" id="startSimilarityBtn" onclick="runSimilarityCheck()" disabled>
+          <span class="btn-icon">▶</span> Start Similarity Check
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ RIGHT PANEL — SIMILARITY REPORT ═══════════════ -->
+    <div class="panel output-panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="icon">🕵️</span> Similarity Report</div>
+        <div class="panel-meta" id="similarity-status">Awaiting input</div>
+      </div>
+
+      <div class="output-body" id="similarityOutputBody">
+
+        <!-- EMPTY STATE -->
+        <div class="empty-state" id="simEmptyState">
+          <div class="empty-glyph">🕵️</div>
+          <div class="empty-title">No check run yet</div>
+          <div class="empty-desc">Upload a research paper and click <em>Start Similarity Check</em> to search academic sources for overlapping content.</div>
+        </div>
+
+        <!-- LOADING STATE -->
+        <div class="loading-state" id="simLoadingState">
+          <div class="loading-ring"></div>
+          <div class="loading-steps">
+            <div class="loading-step" id="simStep1">🔤 Extracting paper text…</div>
+            <div class="loading-step" id="simStep2">🧭 Fingerprinting title &amp; abstract…</div>
+            <div class="loading-step" id="simStep3">🔎 Searching academic sources…</div>
+            <div class="loading-step" id="simStep4">📥 Fetching candidate papers…</div>
+            <div class="loading-step" id="simStep5">📊 Scoring content similarity…</div>
+          </div>
+        </div>
+
+        <!-- RESULT STATE -->
+        <div class="result-state" id="simResultState">
+
+          <!-- Verdict Banner (TOP) -->
+          <div class="verdict-banner" id="verdictBanner">
+            <div class="verdict-score" id="verdict-score">0%</div>
+            <div class="verdict-details">
+              <div class="verdict-pill" id="verdict-pill">—</div>
+              <div class="verdict-titles" id="verdict-titles"></div>
+            </div>
+          </div>
+
+          <!-- Paper Summary -->
+          <div class="summary-section">
+            <div class="summary-section-title">Paper Summary</div>
+            <div class="topic-badge" id="sim-topic">—</div>
+            <div class="summary-body" id="sim-overview">—</div>
+          </div>
+
+          <!-- Candidate Matches -->
+          <div class="summary-section">
+            <div class="summary-section-title">Candidate Matches (<span id="sim-candidate-count">0</span>)</div>
+            <div class="candidates-table" id="candidatesTable"></div>
+          </div>
+
+        </div><!-- /sim-result-state -->
+      </div><!-- /similarityOutputBody -->
+
+      <!-- Result Actions -->
+      <div class="result-actions" id="simResultActions" style="display:none">
+        <button class="btn-action danger" onclick="resetSimilarityOutput()">🗑 Clear</button>
+      </div>
+
+    </div><!-- /output-panel -->
+
+  </div><!-- /mode-similarity -->
+
 </div><!-- /app-shell -->
 
 <!-- TOAST -->
@@ -687,10 +935,112 @@ dropZone.addEventListener('drop', e => {
 });
 
 /* ════════════════════════════════════════════════════════
+   MODE SWITCH (Summarize ↔ Similarity Check)
+════════════════════════════════════════════════════════ */
+function setMode(mode) {
+  document.getElementById('mode-summarize').style.display = mode === 'summarize' ? 'grid' : 'none';
+  document.getElementById('mode-similarity').style.display = mode === 'similarity' ? 'grid' : 'none';
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  if (mode === 'similarity' && !sourcesLoaded) fetchSimilaritySources();
+}
+
+/* ════════════════════════════════════════════════════════
+   SIMILARITY CHECK — PAPER FILE HANDLING
+════════════════════════════════════════════════════════ */
+let paperFile = null;
+let sourcesLoaded = false;
+
+function renderPaperFileList() {
+  const listEl = document.getElementById('paperFileList');
+  const metaEl = document.getElementById('paper-file-meta');
+  const startBtn = document.getElementById('startSimilarityBtn');
+  listEl.innerHTML = '';
+
+  if (!paperFile) {
+    metaEl.textContent = 'No file loaded';
+    startBtn.disabled = true;
+    return;
+  }
+
+  metaEl.textContent = '1 file loaded';
+  startBtn.disabled = false;
+
+  const li = document.createElement('li');
+  li.className = 'file-item';
+
+  const badge = document.createElement('span');
+  badge.className = 'file-type-badge badge-doc';
+  badge.textContent = 'PAPER';
+
+  const name = document.createElement('span');
+  name.className = 'file-name';
+  name.textContent = paperFile.name;
+  name.title = paperFile.name;
+
+  const size = document.createElement('span');
+  size.className = 'file-size';
+  size.textContent = formatSize(paperFile.size);
+
+  const remove = document.createElement('button');
+  remove.className = 'file-remove';
+  remove.textContent = '✕';
+  remove.onclick = () => { paperFile = null; renderPaperFileList(); };
+
+  li.append(badge, name, size, remove);
+  listEl.appendChild(li);
+}
+
+function setPaperFile(file) {
+  if (!file) return;
+  paperFile = file;
+  renderPaperFileList();
+}
+
+const paperDropZone = document.getElementById('paperDropZone');
+const paperFileInput = document.getElementById('paperFileInput');
+
+paperFileInput.addEventListener('change', e => {
+  setPaperFile(e.target.files[0]);
+  paperFileInput.value = '';
+});
+paperDropZone.addEventListener('dragover', e => { e.preventDefault(); paperDropZone.classList.add('drag-over'); });
+paperDropZone.addEventListener('dragleave', () => paperDropZone.classList.remove('drag-over'));
+paperDropZone.addEventListener('drop', e => {
+  e.preventDefault(); paperDropZone.classList.remove('drag-over');
+  setPaperFile(e.dataTransfer.files[0]);
+});
+
+/* ════════════════════════════════════════════════════════
+   SIMILARITY CHECK — SOURCE AVAILABILITY
+════════════════════════════════════════════════════════ */
+async function fetchSimilaritySources() {
+  sourcesLoaded = true;
+  try {
+    const resp = await fetch('http://localhost:8000/api/similarity/sources');
+    if (!resp.ok) return;
+    const { sources } = await resp.json();
+
+    document.querySelectorAll('#sourceChecklist .source-check-item').forEach(item => {
+      const checkbox = item.querySelector('input[type="checkbox"]');
+      const sourceName = checkbox.value;
+      if (sourceName in sources && sources[sourceName] === false) {
+        checkbox.checked = false;
+        checkbox.disabled = true;
+        item.classList.add('unavailable');
+      }
+    });
+  } catch (err) {
+    // Backend unreachable — leave checkboxes at their defaults, the
+    // request itself will surface the connection error.
+  }
+}
+
+/* ════════════════════════════════════════════════════════
    LOADING ANIMATION
 ════════════════════════════════════════════════════════ */
-function runLoadingSteps() {
-  const steps = ['step1','step2','step3','step4','step5'];
+function runLoadingSteps(steps = ['step1','step2','step3','step4','step5']) {
   steps.forEach(id => {
     const el = document.getElementById(id);
     el.className = 'loading-step'; // reset
@@ -879,6 +1229,169 @@ function exportMarkdown() {
   a.download = 'research-summary.md';
   a.click();
   showToast('⬇️ Markdown exported');
+}
+
+/* ════════════════════════════════════════════════════════
+   SIMILARITY CHECK — RUN + RENDER
+════════════════════════════════════════════════════════ */
+async function callSimilarityAPI(formData) {
+  const response = await fetch('http://localhost:8000/api/check-plagiarism', {
+    method: 'POST',
+    body: formData,
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new Error((detail && detail.detail) || `Request failed (${response.status})`);
+  }
+  return await response.json();
+}
+
+async function runSimilarityCheck() {
+  if (!paperFile) { showToast('Please add a paper to check'); return; }
+
+  const checkedSources = Array.from(
+    document.querySelectorAll('#sourceChecklist input[type="checkbox"]:checked')
+  ).map(cb => cb.value);
+
+  const formData = new FormData();
+  formData.append('file', paperFile);
+  formData.append('title', document.getElementById('paperTitleInput').value);
+  formData.append('authors', document.getElementById('paperAuthorInput').value);
+  formData.append('domainHint', document.getElementById('paperDomainInput').value);
+  formData.append('sources', checkedSources.join(','));
+
+  document.getElementById('startSimilarityBtn').disabled = true;
+  document.getElementById('similarity-status').textContent = 'Processing…';
+  switchSimilarityOutputState('loading');
+
+  const loadingDone = runLoadingSteps(['simStep1','simStep2','simStep3','simStep4','simStep5']);
+
+  try {
+    const [result] = await Promise.all([ callSimilarityAPI(formData), loadingDone ]);
+    renderSimilarityResult(result);
+  } catch (err) {
+    switchSimilarityOutputState('empty');
+    document.getElementById('similarity-status').textContent = 'Error — see toast';
+    showToast('❌ ' + (err.message || 'Backend error'), true);
+  } finally {
+    document.getElementById('startSimilarityBtn').disabled = false;
+  }
+}
+
+function switchSimilarityOutputState(state) {
+  document.getElementById('simEmptyState').style.display   = state==='empty'   ? 'flex'  : 'none';
+  document.getElementById('simLoadingState').style.display = state==='loading' ? 'flex'  : 'none';
+  document.getElementById('simResultState').style.display  = state==='result'  ? 'block' : 'none';
+  if (state !== 'result') document.getElementById('simResultActions').style.display = 'none';
+}
+
+function resetSimilarityOutput() {
+  switchSimilarityOutputState('empty');
+  document.getElementById('similarity-status').textContent = 'Awaiting input';
+}
+
+/** Maps a 0-1 similarity score to one of the app's four verdict tiers. */
+function verdictTierClass(score) {
+  if (score >= 0.80) return 'verdict-copy';
+  if (score >= 0.60) return 'verdict-review';
+  if (score >= 0.40) return 'verdict-low';
+  return 'verdict-original';
+}
+
+function renderSimilarityResult(data) {
+  const highest = data.highestScore || 0;
+  const tier = verdictTierClass(highest);
+
+  // ── Verdict banner (top of output box) ──────────────────────────────
+  const scoreEl = document.getElementById('verdict-score');
+  scoreEl.textContent = Math.round(highest * 100) + '%';
+  scoreEl.className = 'verdict-score ' + tier;
+
+  const pillEl = document.getElementById('verdict-pill');
+  pillEl.textContent = data.verdict || '—';
+  pillEl.className = 'verdict-pill ' + tier;
+
+  const titlesEl = document.getElementById('verdict-titles');
+  titlesEl.innerHTML = '';
+  const topMatches = (data.allCandidates || []).slice(0, 3);
+  if (topMatches.length === 0) {
+    const none = document.createElement('div');
+    none.textContent = 'No matching papers found across the searched sources.';
+    titlesEl.appendChild(none);
+  } else {
+    topMatches.forEach(c => {
+      const row = document.createElement('span');
+      row.className = 'vt-item';
+      const scoreSpan = document.createElement('span');
+      scoreSpan.className = 'vt-score';
+      scoreSpan.textContent = `${Math.round(c.similarityScore * 100)}% — `;
+      row.appendChild(scoreSpan);
+      row.appendChild(document.createTextNode(`${c.title} (${c.source})`));
+      titlesEl.appendChild(row);
+    });
+  }
+
+  // ── Paper summary ────────────────────────────────────────────────────
+  document.getElementById('sim-topic').textContent = (data.summary && data.summary.topic) || data.paperTitle || 'Unknown';
+  document.getElementById('sim-overview').textContent = (data.summary && data.summary.overview) || '—';
+
+  // ── Candidate matches table ─────────────────────────────────────────
+  const countEl = document.getElementById('sim-candidate-count');
+  countEl.textContent = (data.allCandidates || []).length;
+
+  const tableEl = document.getElementById('candidatesTable');
+  tableEl.innerHTML = '';
+
+  if (!data.allCandidates || data.allCandidates.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'no-candidates';
+    empty.textContent = 'No candidate papers were returned by the searched sources.';
+    tableEl.appendChild(empty);
+  } else {
+    data.allCandidates.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'candidate-row' + (c.similarityScore >= (data.threshold || 0.6) ? ' flagged' : '');
+
+      const top = document.createElement('div');
+      top.className = 'candidate-row-top';
+
+      const scoreEl2 = document.createElement('div');
+      scoreEl2.className = 'candidate-score ' + verdictTierClass(c.similarityScore);
+      scoreEl2.textContent = Math.round(c.similarityScore * 100) + '%';
+
+      const info = document.createElement('div');
+      info.className = 'candidate-info';
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'candidate-title';
+      titleEl.textContent = c.title;
+      titleEl.title = c.title;
+
+      const metaEl = document.createElement('div');
+      metaEl.className = 'candidate-meta';
+      const metaParts = [c.source, c.year, c.contentLevel === 'full_text' ? 'full text' : 'abstract only'].filter(Boolean);
+      metaEl.textContent = metaParts.join(' · ');
+
+      if (c.url) {
+        metaEl.appendChild(document.createTextNode(' · '));
+        const link = document.createElement('a');
+        link.href = c.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'view source ↗';
+        metaEl.appendChild(link);
+      }
+
+      info.append(titleEl, metaEl);
+      top.append(scoreEl2, info);
+      row.appendChild(top);
+      tableEl.appendChild(row);
+    });
+  }
+
+  switchSimilarityOutputState('result');
+  document.getElementById('similarity-status').textContent = 'Check complete ✓';
+  document.getElementById('simResultActions').style.display = 'flex';
 }
 
 /* ════════════════════════════════════════════════════════
