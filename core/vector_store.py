@@ -9,9 +9,44 @@ Uses sentence-transformers for local embedding generation (no API key needed).
 from pathlib import Path
 from typing import Optional
 from utils.logger import get_logger
-from config import CHROMA_DB_PATH, CHROMA_COLLECTION_NAME, EMBEDDING_MODEL, CHUNK_SIZE, CHUNK_OVERLAP
+from config import (
+    CHROMA_DB_PATH, CHROMA_COLLECTION_NAME, EMBEDDING_MODEL, EMBEDDING_DEVICE,
+    CHUNK_SIZE, CHUNK_OVERLAP,
+)
 
 log = get_logger("VectorStore")
+
+
+def _resolve_working_device(model_name: str, device: str) -> str:
+    """
+    Verify `device` can actually run this embedding model with a real
+    encode() call, returning a safe device to use. "cuda available" per
+    nvidia-smi doesn't guarantee the installed PyTorch build has kernels
+    for this GPU's architecture — some are dropped from newer wheels and
+    report available=True while erroring on first real op.
+
+    Deliberately probes with a throwaway sentence_transformers.SentenceTransformer
+    rather than chromadb's SentenceTransformerEmbeddingFunction: that wrapper
+    caches loaded models process-wide in a class dict keyed only by
+    model_name (not device), so constructing a broken CUDA instance through
+    it would poison the cache for every later "cpu" attempt too.
+    """
+    if device == "cpu":
+        return "cpu"
+    try:
+        from sentence_transformers import SentenceTransformer
+        probe = SentenceTransformer(model_name, device=device)
+        probe.encode(["gpu warm-up check"])
+        return device
+    except Exception as e:
+        log.warning(f"Embedding device '{device}' failed a warm-up check ({e}) — using cpu")
+        return "cpu"
+
+
+def _load_embedding_function(model_name: str, device: str):
+    """Build chromadb's embedding function on an already-verified-safe device."""
+    from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+    return SentenceTransformerEmbeddingFunction(model_name=model_name, device=device)
 
 
 def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
@@ -75,15 +110,14 @@ class VectorStore:
             return
 
         import chromadb
-        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
         log.info(f"Initialising ChromaDB at {self.persist_dir} ...")
         self._client = chromadb.PersistentClient(path=str(self.persist_dir))
 
-        log.info(f"Loading embedding model '{self._embedding_model_name}' ...")
-        self._embedding_fn = SentenceTransformerEmbeddingFunction(
-            model_name=self._embedding_model_name
-        )
+        log.info(f"Loading embedding model '{self._embedding_model_name}' (requested device: {EMBEDDING_DEVICE}) ...")
+        device = _resolve_working_device(self._embedding_model_name, EMBEDDING_DEVICE)
+        self._embedding_fn = _load_embedding_function(self._embedding_model_name, device)
+        log.info(f"  ✓ Embedding model running on {device}")
 
         self._collection = self._client.get_or_create_collection(
             name=self.collection_name,

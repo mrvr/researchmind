@@ -11,6 +11,7 @@ import numpy as np
 from core.vector_store import _chunk_text as chunk_text
 from config import (
     EMBEDDING_MODEL,
+    EMBEDDING_DEVICE,
     SIMILARITY_SEMANTIC_WEIGHT,
     SIMILARITY_LEXICAL_WEIGHT,
     SIMILARITY_TOP_K_CHUNK_PAIRS,
@@ -24,13 +25,34 @@ _model = None
 _EMPTY_SCORE = {"semanticScore": 0.0, "lexicalScore": 0.0, "blendedScore": 0.0, "matchedExcerpts": []}
 
 
+def _load_model(device: str):
+    """Load the model on `device`, verified with a real encode() call — see
+    core/vector_store.py's _load_embedding_function() for why this can't
+    just trust device availability. Raises on failure so the caller falls back."""
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer(EMBEDDING_MODEL, device=device)
+    if device != "cpu":
+        model.encode(["gpu warm-up check"])
+    return model
+
+
 def _get_model():
-    """Lazily load the shared sentence-transformers model (same one vector_store uses)."""
+    """Lazily load the shared sentence-transformers model (same one vector_store uses),
+    falling back to CPU if the configured GPU device can't actually run it."""
     global _model
     if _model is None:
-        from sentence_transformers import SentenceTransformer
-        log.info(f"Loading embedding model '{EMBEDDING_MODEL}' for similarity scoring...")
-        _model = SentenceTransformer(EMBEDDING_MODEL)
+        device = EMBEDDING_DEVICE
+        log.info(f"Loading embedding model '{EMBEDDING_MODEL}' on {device} for similarity scoring...")
+        try:
+            _model = _load_model(device)
+        except Exception as e:
+            if device == "cpu":
+                raise
+            log.warning(f"Embedding model failed on {device} ({e}) — falling back to CPU")
+            _model = _load_model("cpu")
+            device = "cpu"
+        log.info(f"  ✓ Similarity embedding model running on {device}")
     return _model
 
 

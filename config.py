@@ -107,9 +107,15 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL    = os.getenv("OLLAMA_MODEL",    "mistral")
 OLLAMA_TIMEOUT  = 300      # seconds — safe for large models on first load
 
-# ── Embeddings (sentence-transformers, runs on GPU automatically) ──────────────
-# CUDA-aware: sentence-transformers detects GPU via PyTorch automatically.
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"    # ~90MB; fast on GPU, fine on CPU too
+# ── Embeddings (sentence-transformers) ──────────────────────────────────────────
+# Best-effort default from the nvidia-smi hardware probe above. This is not a
+# guarantee the installed PyTorch build can actually run kernels on this GPU
+# (e.g. a GPU can be present and "available" while the installed torch wheel
+# has dropped kernel support for its compute capability) — core/vector_store.py
+# and core/similarity_engine.py verify this with a real encode() at load time
+# and fall back to CPU automatically if it fails.
+EMBEDDING_MODEL  = "all-MiniLM-L6-v2"    # ~90MB; fast on GPU, fine on CPU too
+EMBEDDING_DEVICE = "cuda" if GPU_INFO["available"] else "cpu"
 
 # ── ChromaDB Collection ────────────────────────────────────────────────────────
 CHROMA_COLLECTION_NAME = "researchmind_docs"

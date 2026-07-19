@@ -24,23 +24,34 @@ log = get_logger("AudioProcessor")
 _whisper_model = None
 
 
+def _load_whisper(device: str, compute_type: str):
+    from faster_whisper import WhisperModel
+    return WhisperModel(
+        WHISPER_MODEL_SIZE,
+        device=device,
+        compute_type=compute_type,
+        cpu_threads=0 if device == "cuda" else 4,   # all available threads when on CPU
+        num_workers=1,                              # keep model resident between calls
+    )
+
+
 def _get_whisper_model():
     """
     Load the faster-whisper model once and cache it for the process lifetime.
 
     GPU behaviour:
-      - CUDA + float16  → fastest, best quality  (NVIDIA GPU)
-      - CUDA + int8     → fallback if VRAM is tight
+      - CUDA + float16  → fastest, best quality  (NVIDIA GPU with fp16 kernel support)
+      - CUDA + int8/float32 → fallback for GPUs whose CTranslate2 build doesn't
+        support efficient float16 (e.g. older architectures dropped from
+        newer wheels — config.WHISPER_COMPUTE_TYPE can guess wrong here,
+        this actually verifies it and downgrades instead of crashing)
       - CPU  + int8     → no GPU available
     """
     global _whisper_model
     if _whisper_model is None:
-        from faster_whisper import WhisperModel
+        device, compute_type = WHISPER_DEVICE, WHISPER_COMPUTE_TYPE
 
-        log.info(
-            f"Loading Whisper '{WHISPER_MODEL_SIZE}' | "
-            f"device={WHISPER_DEVICE} | compute={WHISPER_COMPUTE_TYPE}"
-        )
+        log.info(f"Loading Whisper '{WHISPER_MODEL_SIZE}' | device={device} | compute={compute_type}")
         if GPU_INFO["available"]:
             log.info(
                 f"  GPU: {GPU_INFO['name']} | "
@@ -49,16 +60,24 @@ def _get_whisper_model():
                 f"CUDA: {GPU_INFO['cuda_version']}"
             )
 
-        _whisper_model = WhisperModel(
-            WHISPER_MODEL_SIZE,
-            device=WHISPER_DEVICE,
-            compute_type=WHISPER_COMPUTE_TYPE,
-            # Use all available CPU threads when running on CPU
-            cpu_threads=0 if WHISPER_DEVICE == "cuda" else 4,
-            # Keep model in VRAM between calls (faster for multiple files)
-            num_workers=1,
-        )
-        log.info("  ✓ Whisper model loaded and ready")
+        try:
+            _whisper_model = _load_whisper(device, compute_type)
+        except ValueError as e:
+            if device != "cuda":
+                raise
+            log.warning(
+                f"Whisper failed to load with compute_type='{compute_type}' on CUDA ({e}) "
+                f"— retrying with 'int8_float32'"
+            )
+            try:
+                _whisper_model = _load_whisper("cuda", "int8_float32")
+                compute_type = "int8_float32"
+            except Exception as e2:
+                log.warning(f"CUDA still unusable ({e2}) — falling back to CPU")
+                _whisper_model = _load_whisper("cpu", "int8")
+                device, compute_type = "cpu", "int8"
+
+        log.info(f"  ✓ Whisper model loaded and ready (device={device}, compute={compute_type})")
     return _whisper_model
 
 
