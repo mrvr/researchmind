@@ -24,6 +24,65 @@ uses **official/free APIs only**, per the hybrid approach:
 | AAS site | `ads_connector.py` — NASA ADS API | AAS journals (ApJ, AJ, ApJL) are canonically indexed by NASA's Astrophysics Data System, which has a free, official API — the correct on-topic source for "AAS site". |
 | general web / broad coverage | `arxiv_connector.py`, `semantic_scholar_connector.py`, `crossref_connector.py` | All free, keyless or low-friction, and together give broad cross-publisher coverage (including most IEEE/ACM/AAS metadata as a fallback). |
 
+## Placeholder for additional sources (not yet exposed)
+
+The connector layer is a plug-in registry, not a fixed list of five.
+`config.py` carries an `EXTRA_SEARCH_SOURCES` placeholder dict for
+databases nobody has wired up yet — each entry is inert until a
+matching connector file is dropped into `connectors/` and its
+`enabled` flag is flipped on. This is where a future source (something
+requested later, an institutional subscription, a niche domain
+database) gets added without touching the registry's fan-out logic.
+
+```python
+# config.py — placeholder registry. Entries are metadata only; adding
+# a source here does nothing until a connectors/<key>_connector.py
+# implementing SearchConnector exists AND "enabled" is set to True.
+EXTRA_SEARCH_SOURCES = {
+    "pubmed":        {"name": "PubMed / NCBI E-utilities",       "base_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/",          "api_key_env": None,                "access": "official_api",  "enabled": False},
+    "core":          {"name": "CORE (core.ac.uk)",               "base_url": "https://api.core.ac.uk/v3/search/works/",                "api_key_env": "CORE_API_KEY",      "access": "official_api",  "enabled": False},
+    "openalex":      {"name": "OpenAlex",                        "base_url": "https://api.openalex.org/works",                         "api_key_env": None,                "access": "official_api",  "enabled": False},
+    "dblp":          {"name": "DBLP (CS bibliography)",          "base_url": "https://dblp.org/search/publ/api",                       "api_key_env": None,                "access": "official_api",  "enabled": False},
+    "doaj":          {"name": "DOAJ (Directory of OA Journals)", "base_url": "https://doaj.org/api/search/articles/",                  "api_key_env": None,                "access": "official_api",  "enabled": False},
+    "springer":      {"name": "Springer Link",                   "base_url": "https://api.springernature.com/meta/v2/",                "api_key_env": "SPRINGER_API_KEY",  "access": "official_api",  "enabled": False},
+    "sciencedirect": {"name": "Elsevier ScienceDirect",          "base_url": "https://api.elsevier.com/content/search/sciencedirect",  "api_key_env": "ELSEVIER_API_KEY",  "access": "official_api",  "enabled": False},
+    "ssrn":          {"name": "SSRN",                             "base_url": "https://papers.ssrn.com/sol3/",                          "api_key_env": None,                "access": "scrape_only",   "enabled": False},
+    "researchgate":  {"name": "ResearchGate",                     "base_url": "https://www.researchgate.net/search",                    "api_key_env": None,                "access": "scrape_only",   "enabled": False},
+    "jstor":         {"name": "JSTOR",                            "base_url": "https://www.jstor.org/action/doBasicSearch",             "api_key_env": None,                "access": "scrape_only",   "enabled": False},
+    # Add further sites here — key, name, base_url, api_key_env (or
+    # None), access ("official_api" | "scrape_only" | "unknown"), and
+    # enabled (leave False until a connector + review exists).
+}
+```
+
+`access` marks how the site could be reached at all: `official_api`
+sources are safe to wire up the same way IEEE/ADS are; `scrape_only`
+sources have no public API — enabling those would repeat the
+Google-Scholar/ACM ToS problem, so they need an explicit decision
+before implementation, not just a flag flip.
+
+A matching connector is a small, fixed shape:
+
+```python
+# connectors/_template_connector.py — copy this to add a new source.
+from connectors.base import SearchConnector, CandidatePaper
+
+class TemplateConnector(SearchConnector):
+    source_key = "pubmed"          # must match an EXTRA_SEARCH_SOURCES key
+
+    def search(self, query: str, max_results: int = 10) -> list[CandidatePaper]:
+        # call config.EXTRA_SEARCH_SOURCES[self.source_key]["base_url"],
+        # map the response into CandidatePaper(title, authors, abstract,
+        # url, source, year, doi) and return the list.
+        raise NotImplementedError
+```
+
+`registry.py` discovers connectors by `source_key` and only calls
+`.search()` on ones marked `enabled: True` in `EXTRA_SEARCH_SOURCES` —
+so adding a row to the dict above is a documentation/roadmap step, and
+dropping in the connector file plus flipping `enabled` is the actual
+activation step.
+
 ## Component architecture
 
 ```mermaid
@@ -47,7 +106,8 @@ flowchart TB
         CROSSREF["crossref_connector\nCrossref API — free, no key"]
         IEEE["ieee_connector\nIEEE Xplore API\n(requires IEEE_API_KEY)"]
         ADS["ads_connector\nNASA ADS API — AAS journals\n(requires ADS_API_TOKEN)"]
-        REGISTRY["registry.run_all(queries)\nfan-out via ThreadPoolExecutor\ndedupe by DOI / normalized title"]
+        PLACEHOLDER["EXTRA_SEARCH_SOURCES (config.py)\nPubMed · CORE · OpenAlex · DBLP · DOAJ ·\nSpringer · ScienceDirect · SSRN · ResearchGate · JSTOR\nall enabled: False — plug-in slot, inert by default"]
+        REGISTRY["registry.run_all(queries)\nfan-out via ThreadPoolExecutor\ndedupe by DOI / normalized title\nonly calls connectors with enabled=True"]
     end
 
     subgraph CACHE["NEW · utils/search_cache.py"]
@@ -85,6 +145,7 @@ flowchart TB
     REGISTRY <--> DISKCACHE
     REGISTRY --> ARXIV & S2 & CROSSREF & IEEE & ADS
     ARXIV & S2 & CROSSREF & IEEE & ADS --> REGISTRY
+    PLACEHOLDER -.->|"disabled — future connectors register here"| REGISTRY
     REGISTRY -->|"deduped candidates"| FETCH
     FETCH --> OA
     FETCH --> ABS
@@ -150,7 +211,8 @@ sequenceDiagram
 | `connectors/crossref_connector.py` | Crossref API — free, keyless, cross-publisher metadata |
 | `connectors/ieee_connector.py` | IEEE Xplore API — requires `IEEE_API_KEY` |
 | `connectors/ads_connector.py` | NASA ADS API (AAS journals) — requires `ADS_API_TOKEN` |
-| `connectors/registry.py` | Fan-out search across connectors, dedupe candidates |
+| `connectors/_template_connector.py` | Copy-paste starting point for wiring up an `EXTRA_SEARCH_SOURCES` entry |
+| `connectors/registry.py` | Fan-out search across enabled connectors, dedupe candidates |
 | `utils/search_cache.py` | On-disk TTL cache to limit redundant/rate-limited external calls |
 | `core/candidate_fetcher.py` | Resolve full text (open access) or fall back to abstract |
 | `core/similarity_engine.py` | Chunk-level embedding similarity + lexical overlap, blended score |
@@ -187,3 +249,9 @@ arXiv + Semantic Scholar + Crossref alone.
 - **Abstract-only scoring for paywalled candidates** biases the
   similarity score toward abstract/introduction overlap rather than
   full-body text — reported per-candidate via `contentLevel`.
+- **`EXTRA_SEARCH_SOURCES` entries are placeholders, not live
+  connectors** — PubMed, CORE, OpenAlex, DBLP, DOAJ, Springer,
+  ScienceDirect, SSRN, ResearchGate, and JSTOR are listed for future
+  wiring but return nothing until a connector is implemented and
+  `enabled` is set to `True`. `scrape_only` entries additionally need
+  an explicit ToS/feasibility decision before implementation.
