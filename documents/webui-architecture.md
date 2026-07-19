@@ -54,7 +54,7 @@ stateDiagram-v2
     Idle --> Validating: Start clicked
     Validating --> Idle: no file loaded (blocked, button stays disabled)
     Validating --> Processing: file present
-    Processing --> Processing: loading steps —\nfingerprinting → searching sources →\nfetching candidates → scoring → building report
+    Processing --> Processing: fingerprint → search → fetch → score
     Processing --> Results: 200 OK
     Processing --> ErrorState: request failed / backend unreachable
     Results --> Idle: Clear clicked
@@ -86,9 +86,9 @@ sequenceDiagram
     API-->>UI: {arxiv: true, semanticScholar: true, crossref: true, ieee: false, ads: false}
     Note over UI: greys out IEEE/ADS checkboxes when a key isn't configured
 
-    UI->>API: POST /api/check-plagiarism\n(paper file, title?, authors?, domainHint?, sources[])
-    API-->>UI: {status, paperTitle, verdict, highestScore,\nflagged[], allCandidates[], summary{topic,overview}}
-    Note over UI: verdict banner reads highestScore + verdict + flagged[0..2].title\nsummary section reads summary.topic / summary.overview\ncandidates table reads allCandidates[]
+    UI->>API: POST /api/check-plagiarism<br/>(paper file, title?, authors?, domainHint?, sources[])
+    API-->>UI: {status, paperTitle, verdict, highestScore,<br/>flagged[], allCandidates[], summary{topic,overview}}
+    Note over UI: verdict banner reads highestScore + verdict + flagged[0..2].title<br/>summary section reads summary.topic / summary.overview<br/>candidates table reads allCandidates[]
 ```
 
 ## New frontend pieces in `research_summary_app.html`
