@@ -105,7 +105,10 @@
       <li><i>Additional sources.</i> Connectors for PubMed, OpenAlex, CORE, and several publisher APIs are scaffolded as configuration placeholders but not yet implemented, pending a per-source terms-of-service review.</li>
     </ul>
 
-    <h1 class="sec">VIII. Conclusion</h1>
+    <h1 class="sec">VIII. Future Enhancements</h1>
+    <p>The current Similarity Finder accepts only text-extractable paper formats (PDF, DOCX, and plain text). A natural extension is multimodal input checking: audio and video submissions&mdash;recorded conference talks, lecture presentations, or narrated paper walkthroughs&mdash;could be transcribed with the same locally hosted Whisper model already used by the Summarizer&rsquo;s audio and video processors, and the resulting transcript fed into the existing fingerprinting, query-generation, and blended-scoring pipeline unchanged. This would let a single similarity check draw evidence from text, audio, and video representations of the same underlying work, rather than requiring the material to already exist in text form before an originality check can run. We regard this as an architecturally straightforward extension rather than a redesign: it only requires inserting the transcription step already implemented elsewhere in the system ahead of paper fingerprinting (Section&nbsp;III), and requires no change to the connector, scoring, or reporting layers.</p>
+
+    <h1 class="sec">IX. Conclusion</h1>
     <p>We described the Similarity Finder, a plagiarism/originality-checking subsystem built on official academic search APIs and a blended semantic&ndash;lexical scoring function, sharing the same automatic GPU-aware compute placement as the rest of the ResearchMind pipeline. The subsystem was validated end-to-end through a live browser-driven test against the running backend and live external search APIs.</p>
 
     <h1 class="sec">References</h1>
