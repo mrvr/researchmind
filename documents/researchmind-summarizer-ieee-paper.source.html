@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ResearchMind Summarizer: A Locally-Hosted Multimodal Retrieval-Augmented Generation Pipeline</title>
+<style>
+  @page { size: letter; margin: 0.75in 0.625in 1in 0.625in; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: "Liberation Serif", "Times New Roman", Times, serif;
+    font-size: 10pt; line-height: 1.18; color: #000;
+    text-align: justify; hyphens: auto;
+  }
+  .titleblock { text-align: center; margin-bottom: 6pt; }
+  .paper-title { font-size: 22pt; font-weight: bold; line-height: 1.15; margin: 0 0 10pt; padding: 0 0.4in; }
+  .authors { font-size: 11pt; margin: 0 0 2pt; }
+  .affil { font-size: 10pt; font-style: italic; margin: 0 0 2pt; }
+  .email { font-size: 9.5pt; font-family: "Liberation Mono", "Courier New", monospace; margin: 0 0 12pt; }
+  .body-columns { column-count: 2; column-gap: 0.25in; column-rule: none; }
+  p { margin: 0 0 6pt; text-indent: 0.16in; }
+  p.no-indent { text-indent: 0; }
+  .abstract p, .keywords p { text-indent: 0; margin: 0 0 6pt; }
+  .abstract b, .keywords b { font-style: italic; }
+  h1.sec { font-size: 10pt; font-weight: bold; text-align: center; letter-spacing: 0.4pt; margin: 12pt 0 4pt; break-after: avoid; break-inside: avoid; }
+  h2.subsec { font-size: 10pt; font-weight: bold; font-style: italic; margin: 8pt 0 3pt; break-after: avoid; }
+  figure { break-inside: avoid; margin: 8pt 0; text-align: center; }
+  figure.wide { column-span: all; margin: 10pt 0 12pt; }
+  figure img { max-width: 100%; display: block; margin: 0 auto; border: 0.5pt solid #999; }
+  figcaption { font-size: 8.5pt; margin-top: 4pt; padding: 0 0.3in; }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 8.5pt; break-inside: avoid; }
+  table.wide { column-span: all; width: 100%; }
+  caption { caption-side: top; font-size: 8.5pt; margin-bottom: 4pt; }
+  th, td { border-top: 0.75pt solid #000; border-bottom: 0.75pt solid #000; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  thead th { border-bottom: 0.75pt solid #000; font-weight: bold; }
+  tbody tr:last-child td { border-bottom: 0.75pt solid #000; }
+  .eq { text-align: center; margin: 8pt 0; font-size: 10pt; font-style: italic; }
+  ul, ol { margin: 4pt 0 8pt 0.3in; padding: 0; font-size: 10pt; }
+  li { margin-bottom: 2pt; }
+  code, .mono { font-family: "Liberation Mono", "Courier New", monospace; font-size: 9pt; }
+  .refs { font-size: 9pt; margin: 0; padding: 0; list-style: none; counter-reset: refnum; }
+  .refs li { counter-increment: refnum; margin: 0 0 4pt 0; padding-left: 1.5em; text-indent: -1.5em; }
+  .refs li::before { content: "[" counter(refnum) "]"; padding-right: 0.4em; }
+  sup.cite { font-size: 8pt; }
+</style>
+</head>
+<body>
+
+  <div class="titleblock">
+    <div class="paper-title">ResearchMind Summarizer: A Locally-Hosted Multimodal Retrieval-Augmented Generation Pipeline</div>
+    <div class="authors">Raghuvardhan M</div>
+    <div class="affil">Independent Researcher</div>
+    <div class="email">raghu8linux@gmail.com</div>
+  </div>
+
+  <div class="body-columns">
+
+    <div class="abstract">
+      <p class="no-indent"><b>Abstract—</b>We present the ResearchMind Summarizer, a research-assistant pipeline that ingests heterogeneous source material&mdash;plain text, PDF and office documents, audio, video, and spreadsheets&mdash;and produces a structured synthesis using a locally hosted large language model (LLM), avoiding third-party cloud inference. Extracted content from each source is chunked, embedded with a sentence-embedding model, and indexed in a local vector store; when the user supplies a research-focus prompt, the most semantically relevant stored passages are retrieved and folded into a single synthesis call, following the retrieval-augmented generation (RAG) pattern. The pipeline auto-detects available GPU hardware and falls back to CPU execution automatically, with no configuration required from the operator. The system is exposed through a browser interface and was validated end-to-end against a live backend and a local LLM.</p>
+    </div>
+
+    <div class="keywords">
+      <p class="no-indent"><b>Index Terms—</b>retrieval-augmented generation, local large language models, multimodal document processing, vector embeddings, automatic speech recognition</p>
+    </div>
+
+    <h1 class="sec">I. Introduction</h1>
+    <p>Researchers routinely work with source material spread across incompatible formats: PDF manuscripts, slide decks, recorded lectures, and tabular datasets. Synthesizing this material into a coherent overview is labor-intensive and increasingly delegated to AI systems, most of which route documents through a third-party cloud API&mdash;raising privacy, cost, and availability concerns, particularly for unpublished or sensitive research material.</p>
+    <p>The ResearchMind Summarizer is designed around a different default: the ingestion, embedding, and summarization pipeline runs entirely on local infrastructure, using a locally hosted LLM server (Ollama), a local automatic speech recognition (ASR) engine, and a local embedding model backed by an on-disk vector store. This paper describes that pipeline&rsquo;s architecture, its GPU-aware compute placement, its browser interface, and an end-to-end validation of the complete stack. A companion paper describes the Similarity Finder, a separate subsystem built on the same local infrastructure that checks an uploaded paper against the published literature for content overlap&mdash;the one capability in the broader ResearchMind system that is inherently non-local.</p>
+
+    <h1 class="sec">II. Related Work</h1>
+    <p>Retrieval-augmented generation (RAG) conditions a generative language model on passages retrieved from an external corpus at inference time, improving factual grounding relative to parametric generation alone&nbsp;<sup class="cite">[2]</sup>. The Summarizer applies the same principle in a single-session setting: content extracted from a user&rsquo;s own uploaded files is embedded and indexed, and, when a research-focus prompt is supplied, semantically relevant chunks are retrieved and folded into the final synthesis prompt. The underlying LLM and embedding model are both built on the Transformer architecture&nbsp;<sup class="cite">[1]</sup>; the embedding model follows the Sentence-BERT approach of fine-tuning a Transformer encoder with a siamese/triplet objective so that cosine similarity between sentence embeddings is meaningful&nbsp;<sup class="cite">[3]</sup>. Approximate nearest-neighbor retrieval over the resulting embeddings is performed with a Hierarchical Navigable Small World (HNSW) graph index&nbsp;<sup class="cite">[5]</sup>, as implemented by the ChromaDB vector database used in this system. Speech and audio content is transcribed with a Transformer-based ASR model trained on large-scale weakly supervised data&nbsp;<sup class="cite">[4]</sup>, executed locally through a CTranslate2-optimized inference engine.</p>
+
+    <h1 class="sec">III. System Architecture</h1>
+    <p>Figure&nbsp;1 shows the end-to-end pipeline. An uploaded file set is routed by file extension into one of five categories&mdash;plain text, rich documents, audio, video, and spreadsheets&mdash;each handled by a dedicated processor. Text and document extraction uses format-specific libraries (PyMuPDF for PDF, python-docx and python-pptx for Office formats, odfpy for OpenDocument formats); audio and video are transcribed by a locally hosted Whisper model, with video first demultiplexed to a 16&nbsp;kHz mono waveform; spreadsheets are summarized statistically (column typing, correlation analysis, categorical value counts) before being handed to the LLM for narrative interpretation. Independent files are processed concurrently through a thread pool, since the workload is I/O- and inference-bound rather than CPU-bound.</p>
+    <p>Every processor&rsquo;s output is chunked with a fixed character budget and overlap, embedded, and upserted into a persistent, cosine-indexed ChromaDB collection. A summarization stage merges all per-source outputs into a single budgeted context block; if the user supplies a research-focus prompt, the system additionally retrieves the most semantically relevant stored chunks and folds them into that context before a single call to the local LLM produces the final structured summary (topic, overview, key points, methodology, data insights, research gaps, and keywords).</p>
+    <p>The pipeline is exposed through a small REST surface: a single synthesis endpoint that accepts a multipart file set and an optional context string, a health endpoint that reports LLM reachability and the presence of each format-specific extraction dependency, and a model-listing endpoint used by operator tooling. Uploaded files are written to a per-request temporary directory that is removed once processing completes or fails, so no uploaded content persists on disk beyond the lifetime of a single request; only the derived vector-store index persists across requests, and it is reset at the start of each new session.</p>
+
+    </div>
+    <figure class="wide">
+      <img src="file:///home/raghuvrdhan/Documents/courses/outskill/projects/webapp/cpu_only/documents/diagrams/system-full-pipeline.jpg" alt="System pipeline architecture" />
+      <figcaption>Fig.&nbsp;1.&nbsp;&nbsp;End-to-end ingestion, retrieval, and synthesis pipeline. Files are routed by modality to dedicated processors, chunked and embedded into a local vector store, and merged into a single LLM synthesis call, with optional semantic retrieval when a research-focus prompt is supplied.</figcaption>
+    </figure>
+    <div class="body-columns">
+
+    <h1 class="sec">IV. GPU-Aware Compute Placement</h1>
+    <p>Two components in the Summarizer have distinct GPU and CPU execution paths: sentence embeddings (used to populate and query the vector store) and speech transcription (Whisper). LLM inference is delegated to the locally hosted Ollama server, which manages its own GPU usage independently. At process start, the system probes for a usable GPU by querying the NVIDIA driver and the machine-learning framework&rsquo;s own device API; when a usable GPU is found, embeddings and transcription default to it for lower latency, and when none is found&mdash;or the detected device cannot actually be used&mdash;both fall back to CPU execution automatically. This detection and fallback is fully automatic: no environment variable or manual flag needs to be set to choose between GPU and CPU, and the choice is re-evaluated on every process start rather than cached from a previous run.</p>
+    <p>We observed that this automatic GPU detection and resource allocation is more reliable when the system runs directly on the host machine or inside a conda-managed environment, rather than inside a plain Python <span class="mono">venv</span> virtual environment; under a <span class="mono">venv</span>, GPU resource allocation by the underlying machine-learning libraries did not always occur as expected. Deployments intending to rely on GPU acceleration should therefore prefer a conda environment or a bare-metal host installation over a venv-based one.</p>
+
+    <h1 class="sec">V. Web-Based User Interface</h1>
+    <p>The Summarizer is exposed through a single-page browser interface that accepts multiple files and an optional research-focus prompt. Uploaded files are classified client-side (document, audio, video, or text) and listed with per-type counts before submission. The result view renders the structured synthesis&mdash;main topic, overview, key points, research gaps, and source files analyzed&mdash;with copy and Markdown-export actions, and shares its visual design system with a second, Similarity Finder mode described in a companion paper.</p>
+
+    <h1 class="sec">VI. Empirical Observation</h1>
+    <p>We validated the pipeline end-to-end against the running backend and a local Ollama instance (7-billion-parameter instruction-tuned model), driven through a headless-browser test of the actual interface rather than by calling internal functions directly. A short research paper was submitted as a plain-text upload; the system returned a coherent structured summary&mdash;main topic, a multi-paragraph overview, six key points, and research-gap suggestions&mdash;within the same session used to validate the Similarity Finder on identical input, confirming both the document-processing and LLM-integration code paths function correctly. No client-side errors were observed.</p>
+
+    <h1 class="sec">VII. Limitations and Future Work</h1>
+    <ul>
+      <li><i>Single embedding model.</i> Retrieval relies on one general-purpose sentence-embedding model; domain-specific or multilingual material may benefit from model selection or ensembling.</li>
+      <li><i>No streaming.</i> The final synthesis is returned as a single blocking response rather than streamed incrementally, which affects perceived latency on longer inputs.</li>
+      <li><i>Fixed chunking.</i> Chunk size and overlap are static configuration values rather than adapted to document structure (e.g., section boundaries).</li>
+      <li><i>Reactive GPU verification.</i> The detection strategy in Section&nbsp;IV verifies usability at each process start rather than consulting a precompiled compatibility matrix; this trades a small one-time verification cost for not requiring such a matrix to be maintained.</li>
+    </ul>
+
+    <h1 class="sec">VIII. Conclusion</h1>
+    <p>We described the ResearchMind Summarizer, a locally hosted multimodal research assistant that unifies document, audio, video, and spreadsheet ingestion behind a common retrieval-augmented synthesis pipeline, with automatic GPU-aware compute placement and no operator-facing configuration. The complete system was validated end-to-end through a live browser-driven test against the running backend and a local LLM.</p>
+
+    <h1 class="sec">References</h1>
+    <ol class="refs">
+      <li>A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, &Lstrok;. Kaiser, and I. Polosukhin, &ldquo;Attention is all you need,&rdquo; in <i>Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)</i>, 2017, pp. 5998&ndash;6008.</li>
+      <li>P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. K&uuml;ttler, M. Lewis, W. Yih, T. Rockt&auml;schel, S. Riedel, and D. Kiela, &ldquo;Retrieval-augmented generation for knowledge-intensive NLP tasks,&rdquo; in <i>Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)</i>, 2020.</li>
+      <li>N. Reimers and I. Gurevych, &ldquo;Sentence-BERT: Sentence embeddings using Siamese BERT-networks,&rdquo; in <i>Proc. Conf. Empirical Methods Natural Lang. Process. (EMNLP)</i>, 2019, pp. 3982&ndash;3992.</li>
+      <li>A. Radford, J. W. Kim, T. Xu, G. Brockman, C. McLeavey, and I. Sutskever, &ldquo;Robust speech recognition via large-scale weak supervision,&rdquo; <i>arXiv preprint arXiv:2212.04356</i>, 2022.</li>
+      <li>Y. A. Malkov and D. A. Yashunin, &ldquo;Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs,&rdquo; <i>IEEE Trans. Pattern Anal. Mach. Intell.</i>, vol.&nbsp;42, no.&nbsp;4, pp. 824&ndash;836, 2020.</li>
+      <li>Ollama Inc., &ldquo;Ollama: Get up and running with large language models locally,&rdquo; 2024. [Online]. Available: https://ollama.com</li>
+      <li>Chroma Inc., &ldquo;Chroma: The open-source embedding database,&rdquo; 2024. [Online]. Available: https://www.trychroma.com</li>
+    </ol>
+
+  </div>
+</body>
+</html>

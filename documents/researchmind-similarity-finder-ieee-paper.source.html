@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ResearchMind Similarity Finder: Plagiarism and Originality Detection via Official Academic Search APIs</title>
+<style>
+  @page { size: letter; margin: 0.75in 0.625in 1in 0.625in; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: "Liberation Serif", "Times New Roman", Times, serif;
+    font-size: 10pt; line-height: 1.18; color: #000;
+    text-align: justify; hyphens: auto;
+  }
+  .titleblock { text-align: center; margin-bottom: 6pt; }
+  .paper-title { font-size: 22pt; font-weight: bold; line-height: 1.15; margin: 0 0 10pt; padding: 0 0.4in; }
+  .authors { font-size: 11pt; margin: 0 0 2pt; }
+  .affil { font-size: 10pt; font-style: italic; margin: 0 0 2pt; }
+  .email { font-size: 9.5pt; font-family: "Liberation Mono", "Courier New", monospace; margin: 0 0 12pt; }
+  .body-columns { column-count: 2; column-gap: 0.25in; column-rule: none; }
+  p { margin: 0 0 6pt; text-indent: 0.16in; }
+  p.no-indent { text-indent: 0; }
+  .abstract p, .keywords p { text-indent: 0; margin: 0 0 6pt; }
+  .abstract b, .keywords b { font-style: italic; }
+  h1.sec { font-size: 10pt; font-weight: bold; text-align: center; letter-spacing: 0.4pt; margin: 12pt 0 4pt; break-after: avoid; break-inside: avoid; }
+  h2.subsec { font-size: 10pt; font-weight: bold; font-style: italic; margin: 8pt 0 3pt; break-after: avoid; }
+  figure { break-inside: avoid; margin: 8pt 0; text-align: center; }
+  figure.wide { column-span: all; margin: 10pt 0 12pt; }
+  figure img { max-width: 100%; display: block; margin: 0 auto; border: 0.5pt solid #999; }
+  figcaption { font-size: 8.5pt; margin-top: 4pt; padding: 0 0.3in; }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 8.5pt; break-inside: avoid; }
+  table.wide { column-span: all; width: 100%; }
+  caption { caption-side: top; font-size: 8.5pt; margin-bottom: 4pt; }
+  th, td { border-top: 0.75pt solid #000; border-bottom: 0.75pt solid #000; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  thead th { border-bottom: 0.75pt solid #000; font-weight: bold; }
+  tbody tr:last-child td { border-bottom: 0.75pt solid #000; }
+  .eq { text-align: center; margin: 8pt 0; font-size: 10pt; font-style: italic; }
+  ul, ol { margin: 4pt 0 8pt 0.3in; padding: 0; font-size: 10pt; }
+  li { margin-bottom: 2pt; }
+  code, .mono { font-family: "Liberation Mono", "Courier New", monospace; font-size: 9pt; }
+  .refs { font-size: 9pt; margin: 0; padding: 0; list-style: none; counter-reset: refnum; }
+  .refs li { counter-increment: refnum; margin: 0 0 4pt 0; padding-left: 1.5em; text-indent: -1.5em; }
+  .refs li::before { content: "[" counter(refnum) "]"; padding-right: 0.4em; }
+  sup.cite { font-size: 8pt; }
+</style>
+</head>
+<body>
+
+  <div class="titleblock">
+    <div class="paper-title">ResearchMind Similarity Finder: Plagiarism and Originality Detection via Official Academic Search APIs</div>
+    <div class="authors">Raghuvardhan M</div>
+    <div class="affil">Independent Researcher</div>
+    <div class="email">raghu8linux@gmail.com</div>
+  </div>
+
+  <div class="body-columns">
+
+    <div class="abstract">
+      <p class="no-indent"><b>Abstract—</b>We present the Similarity Finder, a plagiarism/originality-checking subsystem for the ResearchMind research assistant. Given an uploaded paper, the system fingerprints its title and abstract, generates a small set of targeted search queries, and dispatches them in parallel to a registry of academic search connectors&mdash;arXiv, Semantic Scholar, and Crossref without credentials, and IEEE Xplore and the NASA Astrophysics Data System when operator credentials are supplied. Candidate results are deduplicated, their content resolved to full text where an open-access copy exists, and scored against the uploaded paper using a weighted combination of embedding-based semantic similarity and lexical n-gram overlap. Candidates at or above a configurable threshold are flagged as a chance of plagiarism, with the same score driving both the API response and an interface verdict banner. We deliberately exclude Google Scholar and the ACM Digital Library, neither of which exposes an official search API, rather than reaching them through scraping. The subsystem shares GPU-aware, auto-detected compute placement with the rest of the ResearchMind pipeline and was validated end-to-end against live external search APIs.</p>
+    </div>
+
+    <div class="keywords">
+      <p class="no-indent"><b>Index Terms—</b>plagiarism detection, originality checking, academic search APIs, semantic similarity, lexical similarity, retrieval</p>
+    </div>
+
+    <h1 class="sec">I. Introduction</h1>
+    <p>Verifying that a manuscript does not unintentionally overlap with existing published work is a standard step before submission, traditionally handled by commercial plagiarism-detection services that require uploading the full manuscript to a third-party cloud platform. For researchers working with unpublished or sensitive material, this is often undesirable for the same reasons that motivate local-first document processing more generally.</p>
+    <p>The Similarity Finder is designed as an explicitly scoped, opt-in subsystem of the broader ResearchMind research assistant&mdash;described in a companion paper&mdash;which is otherwise fully local. It is the one capability that is inherently non-local, since checking a paper against the wider literature requires reaching external search endpoints. We scope that reach deliberately: every connector is chosen for having an official, free, or credentialed access path, rather than scraping search-result pages, and sources without such a path are documented as gaps rather than approximated.</p>
+
+    <h1 class="sec">II. Related Work</h1>
+    <p>Content-overlap detection has traditionally relied on lexical fingerprinting, such as shingled n-gram matching, which is highly precise for verbatim or near-verbatim copying but insensitive to paraphrase. The Similarity Finder combines that lexical signal with dense semantic similarity from Transformer-based sentence embeddings&nbsp;<sup class="cite">[1]</sup>, following the Sentence-BERT approach of fine-tuning an encoder with a siamese/triplet objective so that cosine similarity between sentence embeddings is meaningful&nbsp;<sup class="cite">[2]</sup>. This mirrors the broader retrieval-augmented generation pattern of grounding a system&rsquo;s output in retrieved external passages&nbsp;<sup class="cite">[3]</sup>, applied here to retrieve candidate sources for comparison rather than context for generation. Title and abstract extraction, and search-query generation, are LLM-assisted using the same locally hosted model used for summarization elsewhere in ResearchMind&nbsp;<sup class="cite">[4]</sup>, with a heuristic fallback so the subsystem remains functional if the LLM is unreachable.</p>
+
+    <h1 class="sec">III. Similarity Finder Architecture</h1>
+    <p>Figure&nbsp;1 shows the subsystem architecture. An uploaded paper is first fingerprinted&mdash;its title and abstract are extracted using the LLM where available, with a heading-and-paragraph heuristic fallback&mdash;and a small set of targeted search queries is generated, again LLM-assisted with a keyword-extraction fallback. These queries are dispatched in parallel across a registry of search connectors, each implementing a common interface. Three connectors require no credentials: the arXiv API, the Semantic Scholar Academic Graph API, and the Crossref works API, which together give broad cross-publisher metadata coverage. Two further connectors are gated behind operator-supplied credentials: the IEEE Xplore API and the NASA Astrophysics Data System API, the latter chosen specifically because AAS-published journals (e.g., <i>The Astrophysical Journal</i>) are canonically indexed there. A connector that lacks its required credential is skipped automatically, with the gap reported through a status endpoint that the interface uses to grey out the corresponding option, rather than failing the request.</p>
+    <p>Deliberately absent are direct connectors to Google Scholar and the ACM Digital Library, neither of which exposes an official public search API; reaching them would require either a paid third-party proxy or scraping their result pages, the latter both fragile and contrary to those sites&rsquo; terms of service. This gap is treated as a documented limitation rather than worked around silently. A separate, inert placeholder registry (covering PubMed, CORE, OpenAlex, DBLP, DOAJ, and several publisher APIs) defines the shape of additional sources that can be wired up later without modifying the fan-out or scoring logic. Search results are deduplicated by DOI or normalized title, and content is resolved per candidate: where an open-access PDF is available (notably from arXiv) it is downloaded and full text extracted; otherwise the connector-supplied abstract is used, and each candidate carries a content-level flag reflecting which was obtained. Results are cached on disk, keyed by a hash of the connector name and query string with a configurable time-to-live, so repeated checks against overlapping queries do not repeatedly re-query rate-limited public endpoints.</p>
+    <p>Every connector implements the same minimal contract: a search method that accepts a query string and a result limit and returns a list of candidate records (title, authors, abstract, publication year, DOI, source name, and, when available, an open-access PDF URL), and an availability check that the registry consults before dispatching any query to that connector. This uniform shape is what allows the fan-out step to treat all connectors interchangeably regardless of whether they are keyless, credential-gated, or, in the placeholder registry, not yet implemented at all&mdash;adding a new source is a matter of implementing this one contract rather than modifying the orchestration logic.</p>
+
+    <h2 class="subsec">A. Blended Similarity Scoring</h2>
+    <p>Both the uploaded paper and each candidate&rsquo;s resolved content are chunked with a fixed character budget and overlap, and pairwise cosine similarity is computed between all chunk embeddings. A semantic score is taken as the mean of the top-<i>k</i> highest-similarity chunk pairs, which is more robust to partial overlap (e.g., a shared methodology section in an otherwise distinct paper) than a single whole-document embedding comparison. A lexical score is computed independently as the Jaccard overlap between 5-gram word shingles of the full texts. The two are combined as</p>
+    <p class="eq">S = &alpha;&middot;S<sub>sem</sub> + &beta;&middot;S<sub>lex</sub>,&nbsp;&nbsp;&alpha;=0.7,&nbsp;&beta;=0.3</p>
+    <p>Candidates with S at or above a configurable threshold (0.60 by default) are flagged as a chance of plagiarism; the same threshold and blended score drive both the API response and the interface&rsquo;s verdict banner, so the two never disagree. The report additionally distinguishes candidates resolved from full text against those resolved from an abstract only, since a high score against an abstract-only candidate reflects overlap in a much smaller sample of text and warrants more caution than the same score against a fully resolved source.</p>
+
+    </div>
+    <figure class="wide">
+      <img src="file:///home/raghuvrdhan/Documents/courses/outskill/projects/webapp/cpu_only/documents/diagrams/similarity-finder-component-architecture.jpg" alt="Similarity Finder component architecture" />
+      <figcaption>Fig.&nbsp;1.&nbsp;&nbsp;Similarity Finder component architecture: fingerprinting, connector fan-out with on-disk caching, candidate content resolution, and blended-score reporting.</figcaption>
+    </figure>
+    <div class="body-columns">
+
+    <h1 class="sec">IV. GPU-Aware Compute Placement</h1>
+    <p>The Similarity Finder&rsquo;s only GPU-sensitive step is the sentence-embedding computation used for semantic scoring; lexical scoring runs on CPU regardless, as it is a simple set-overlap computation with no meaningful GPU path. At process start, the system probes for a usable GPU by querying the NVIDIA driver and the machine-learning framework&rsquo;s own device API; when a usable GPU is found, embedding computation defaults to it, and when none is found&mdash;or the detected device cannot actually be used&mdash;it falls back to CPU execution automatically, with no configuration required from the operator. Detection is re-evaluated on every process start rather than cached from a previous run.</p>
+    <p>We observed that this automatic GPU detection and resource allocation is more reliable when the system runs directly on the host machine or inside a conda-managed environment, rather than inside a plain Python <span class="mono">venv</span> virtual environment; under a <span class="mono">venv</span>, GPU resource allocation by the underlying machine-learning libraries did not always occur as expected. Deployments intending to rely on GPU acceleration for similarity scoring should therefore prefer a conda environment or a bare-metal host installation over a venv-based one.</p>
+
+    <h1 class="sec">V. Web-Based User Interface</h1>
+    <p>The Similarity Finder is exposed as a second mode of the ResearchMind browser interface, sharing its visual design system with the Summarizer mode described in a companion paper. It accepts a single paper, optional title/author/domain-hint overrides, and per-source checkboxes that are populated at load time from the connector-availability endpoint, so credential-gated sources appear disabled with an explanatory label rather than silently failing later. The result view leads with a verdict banner&mdash;the highest blended score, a four-tier verdict label, and the titles of the top matching candidates&mdash;positioned above the general paper summary and the full candidate table, so the originality assessment is visible without scrolling. The four verdict tiers reuse the interface&rsquo;s existing accent palette rather than introducing new colors. Because candidate titles, authors, and URLs originate from third-party APIs and are therefore untrusted input, they are rendered exclusively through safe DOM text-assignment rather than HTML interpolation, precluding script injection from a malicious or compromised upstream result.</p>
+
+    <h1 class="sec">VI. Empirical Observation</h1>
+    <p>We validated the subsystem end-to-end with the backend server and live calls to the three keyless search connectors, driven through a headless-browser test of the actual interface rather than by calling internal functions directly. A short paraphrase of a well-known machine-learning paper was submitted to the Similarity Finder. The system returned 76 deduplicated candidates across the three connectors, with a highest blended similarity score of 48%, placing the result in the &ldquo;low overlap, likely original&rdquo; tier&mdash;below the 60% plagiarism-flag threshold. This is the expected outcome for a paraphrase that shares topic and terminology with the source material without reproducing it verbatim, and indicates that the blended scoring function separates topical/conceptual overlap from the higher-confidence overlap that should be flagged. No client-side errors were observed.</p>
+
+    <h1 class="sec">VII. Limitations and Future Work</h1>
+    <ul>
+      <li><i>Search coverage.</i> Google Scholar and the ACM Digital Library remain unreachable without either a paid proxy service or scraping; both are treated as an explicit gap rather than approximated.</li>
+      <li><i>Threshold calibration.</i> The 60% flag threshold and the four verdict-tier boundaries are engineering defaults, not calibrated against a labeled corpus of known-plagiarized and known-original submissions.</li>
+      <li><i>Single embedding model.</i> Semantic similarity relies on one general-purpose sentence-embedding model; domain-specific or multilingual papers may benefit from model ensembling or selection.</li>
+      <li><i>Additional sources.</i> Connectors for PubMed, OpenAlex, CORE, and several publisher APIs are scaffolded as configuration placeholders but not yet implemented, pending a per-source terms-of-service review.</li>
+    </ul>
+
+    <h1 class="sec">VIII. Conclusion</h1>
+    <p>We described the Similarity Finder, a plagiarism/originality-checking subsystem built on official academic search APIs and a blended semantic&ndash;lexical scoring function, sharing the same automatic GPU-aware compute placement as the rest of the ResearchMind pipeline. The subsystem was validated end-to-end through a live browser-driven test against the running backend and live external search APIs.</p>
+
+    <h1 class="sec">References</h1>
+    <ol class="refs">
+      <li>A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, &Lstrok;. Kaiser, and I. Polosukhin, &ldquo;Attention is all you need,&rdquo; in <i>Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)</i>, 2017, pp. 5998&ndash;6008.</li>
+      <li>N. Reimers and I. Gurevych, &ldquo;Sentence-BERT: Sentence embeddings using Siamese BERT-networks,&rdquo; in <i>Proc. Conf. Empirical Methods Natural Lang. Process. (EMNLP)</i>, 2019, pp. 3982&ndash;3992.</li>
+      <li>P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. K&uuml;ttler, M. Lewis, W. Yih, T. Rockt&auml;schel, S. Riedel, and D. Kiela, &ldquo;Retrieval-augmented generation for knowledge-intensive NLP tasks,&rdquo; in <i>Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)</i>, 2020.</li>
+      <li>Ollama Inc., &ldquo;Ollama: Get up and running with large language models locally,&rdquo; 2024. [Online]. Available: https://ollama.com</li>
+      <li>Cornell University, &ldquo;arXiv API,&rdquo; 2024. [Online]. Available: https://info.arxiv.org/help/api/</li>
+      <li>Allen Institute for AI, &ldquo;Semantic Scholar Academic Graph API,&rdquo; 2024. [Online]. Available: https://api.semanticscholar.org/</li>
+      <li>Crossref, &ldquo;Crossref REST API,&rdquo; 2024. [Online]. Available: https://www.crossref.org/documentation/retrieve-metadata/rest-api/</li>
+    </ol>
+
+  </div>
+</body>
+</html>
